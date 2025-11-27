@@ -1,0 +1,7 @@
+{
+  "name": "MedScribe AI",
+  "description": "Premium AI-powered medical documentation assistant automates Kazakhstan Form 075 generation from voice.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
