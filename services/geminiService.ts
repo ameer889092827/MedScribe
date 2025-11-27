@@ -1,8 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Form075Data } from "../types";
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize Gemini Client Lazy
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+  return aiInstance;
+};
 
 const modelId = "gemini-2.5-flash";
 
@@ -41,6 +48,7 @@ const formSchema = {
 
 export const generateFormFromAudio = async (audioBlob: Blob): Promise<Form075Data> => {
   try {
+    const ai = getAI();
     const base64Audio = await blobToBase64(audioBlob);
 
     const response = await ai.models.generateContent({
@@ -85,6 +93,7 @@ export const generateFormFromAudio = async (audioBlob: Blob): Promise<Form075Dat
 
 export const generateFormFromText = async (text: string): Promise<Form075Data> => {
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: modelId,
       contents: {
