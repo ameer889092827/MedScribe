@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings } from 'lucide-react';
-import { generateFormFromAudio, generateFormFromText } from '../services/geminiService';
+import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings, KeyRound } from 'lucide-react';
+import { generateFormFromAudio, generateFormFromText, setManualApiKey } from '../services/geminiService';
 import { Form075Data, Language, User } from '../types';
 
 interface AppInterfaceProps {
@@ -19,6 +19,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
   const [error, setError] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isConfigError, setIsConfigError] = useState(false);
+  const [manualKeyInput, setManualKeyInput] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -38,8 +39,10 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     reset: language === 'en' ? 'Reset' : 'Сброс',
     configErrorTitle: language === 'en' ? 'Setup Required' : 'Требуется Настройка',
     configErrorDesc: language === 'en' 
-      ? 'The VITE_API_KEY environment variable is missing. Vercel hides variables from the browser unless they start with VITE_.' 
-      : 'Переменная VITE_API_KEY отсутствует. Vercel скрывает переменные от браузера, если они не начинаются с VITE_.',
+      ? 'Missing VITE_API_KEY. If you just added it to Vercel, you must REDEPLOY the project for changes to apply.' 
+      : 'Отсутствует VITE_API_KEY. Если вы только что добавили его в Vercel, необходимо ПЕРЕЗАПУСТИТЬ (Redeploy) проект.',
+    enterKeyManually: language === 'en' ? 'Or enter API Key manually here:' : 'Или введите API Key вручную:',
+    saveKey: language === 'en' ? 'Save & Retry' : 'Сохранить и Повторить'
   };
 
   useEffect(() => {
@@ -127,6 +130,16 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     }
   }
 
+  const handleManualKeySubmit = () => {
+    if (manualKeyInput.trim().length > 10) {
+      setManualApiKey(manualKeyInput.trim());
+      setIsConfigError(false);
+      setError(null);
+      // Automatically retry generation
+      handleGenerate();
+    }
+  };
+
   const handleGenerate = async () => {
     setIsProcessing(true);
     setError(null);
@@ -180,10 +193,6 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     window.print();
   };
 
-  /**
-   * Generates a DOCX-compatible HTML string using Tables.
-   * Tables are robust in Word for creating "Label ______Value______" layouts.
-   */
   const handleDownloadDOCX = () => {
     if (!generatedData) return;
 
@@ -411,19 +420,40 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
           )}
 
           {isConfigError && (
-            <div className="p-6 bg-amber-50 rounded-xl border border-amber-100 text-amber-900 animate-fade-in-up">
+            <div className="p-6 bg-amber-50 rounded-xl border border-amber-100 text-amber-900 animate-fade-in-up shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                  <Settings className="text-amber-600" size={20} />
                  <h3 className="font-semibold">{t.configErrorTitle}</h3>
               </div>
               <p className="text-sm mb-4 leading-relaxed opacity-90">{t.configErrorDesc}</p>
-              <div className="text-xs font-mono bg-white/50 p-3 rounded border border-amber-200/50 mb-4">
-                 Key: VITE_API_KEY<br/>
-                 Value: AIzaSy...
+              
+              <div className="text-xs font-mono bg-white/50 p-3 rounded border border-amber-200/50 mb-4 break-all">
+                 Missing: VITE_API_KEY
               </div>
-              <a href="https://vercel.com/docs/projects/environment-variables" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-amber-700 hover:text-amber-900 border-b border-amber-300 pb-0.5">
-                 Read Vercel Documentation &rarr;
-              </a>
+
+              {/* Manual Key Override Input */}
+              <div className="mt-4 border-t border-amber-200/50 pt-4">
+                 <label className="block text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                    <KeyRound size={12}/> {t.enterKeyManually}
+                 </label>
+                 <div className="flex gap-2">
+                    <input 
+                      type="password"
+                      value={manualKeyInput}
+                      onChange={(e) => setManualKeyInput(e.target.value)}
+                      placeholder="AIzaSy..."
+                      className="flex-1 bg-white border border-amber-200 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none"
+                    />
+                    <button 
+                      onClick={handleManualKeySubmit}
+                      disabled={manualKeyInput.length < 10}
+                      className="bg-amber-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t.saveKey}
+                    </button>
+                 </div>
+                 <p className="text-[10px] mt-2 opacity-60">This key will be used for this session only and is not saved on the server.</p>
+              </div>
             </div>
           )}
         </div>

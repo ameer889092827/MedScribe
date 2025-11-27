@@ -3,24 +3,45 @@ import { Form075Data } from "../types";
 
 // Initialize Gemini Client Lazy
 let aiInstance: GoogleGenAI | null = null;
+let manualApiKey: string = '';
+
+export const setManualApiKey = (key: string) => {
+  manualApiKey = key;
+  aiInstance = null; // Reset instance to force recreation with new key
+};
 
 const getAI = () => {
   if (!aiInstance) {
-    let apiKey = '';
+    let apiKey = manualApiKey;
 
     // 1. Try Vite standard way (import.meta.env)
-    // Vercel requires variables to start with VITE_ to be exposed to the browser
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      apiKey = import.meta.env.VITE_API_KEY || '';
+    if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      apiKey = (import.meta as any).env.VITE_API_KEY || '';
     }
 
-    // 2. Fallback to process.env (legacy/Node compat)
+    // 2. Fallback to process.env (Legacy/CRA/Next.js compat)
     if (!apiKey && typeof process !== 'undefined' && process.env) {
-      apiKey = process.env.API_KEY || '';
+      apiKey = process.env.VITE_API_KEY || 
+               process.env.REACT_APP_API_KEY || 
+               process.env.NEXT_PUBLIC_API_KEY || 
+               process.env.API_KEY || 
+               '';
     }
+
+    // Sanitize: Remove any accidental quotes users might paste in Vercel
+    if (apiKey) {
+      apiKey = apiKey.replace(/["']/g, "").trim();
+    }
+
+    // Debugging Log (Safe, doesn't show full key)
+    console.log("MedScribe AI Init:", { 
+      keyExists: !!apiKey, 
+      keyLength: apiKey?.length,
+      prefix: apiKey?.substring(0, 4) 
+    });
 
     if (!apiKey || apiKey === 'undefined' || apiKey.trim() === '') {
-      console.error("API Key is missing. Please set VITE_API_KEY in your Vercel Environment Variables.");
+      console.error("API Key is missing. Environment check failed.");
       throw new Error("MISSING_API_KEY");
     }
     
