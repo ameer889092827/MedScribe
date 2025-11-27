@@ -6,12 +6,21 @@ let aiInstance: GoogleGenAI | null = null;
 
 const getAI = () => {
   if (!aiInstance) {
-    // Safely access process.env.API_KEY
-    // Note: In some build environments, accessing process.env might fail if process is undefined.
-    const apiKey = process.env.API_KEY;
+    let apiKey = '';
+
+    // 1. Try Vite standard way (import.meta.env)
+    // Vercel requires variables to start with VITE_ to be exposed to the browser
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      apiKey = import.meta.env.VITE_API_KEY || '';
+    }
+
+    // 2. Fallback to process.env (legacy/Node compat)
+    if (!apiKey && typeof process !== 'undefined' && process.env) {
+      apiKey = process.env.API_KEY || '';
+    }
 
     if (!apiKey || apiKey === 'undefined' || apiKey.trim() === '') {
-      console.error("API_KEY is missing or invalid in environment variables.");
+      console.error("API Key is missing. Please set VITE_API_KEY in your Vercel Environment Variables.");
       throw new Error("MISSING_API_KEY");
     }
     

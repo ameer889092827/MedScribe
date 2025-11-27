@@ -36,10 +36,10 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     processing: language === 'en' ? 'Processing...' : 'Обработка...',
     previewTitle: language === 'en' ? 'Document Preview' : 'Предпросмотр Документа',
     reset: language === 'en' ? 'Reset' : 'Сброс',
-    configErrorTitle: language === 'en' ? 'Configuration Required' : 'Требуется Настройка',
+    configErrorTitle: language === 'en' ? 'Setup Required' : 'Требуется Настройка',
     configErrorDesc: language === 'en' 
-      ? 'The AI service could not be initialized. This usually means the API_KEY environment variable is missing in your deployment settings.' 
-      : 'Сервис ИИ не инициализирован. Обычно это означает, что переменная окружения API_KEY отсутствует в настройках деплоя.',
+      ? 'The VITE_API_KEY environment variable is missing. Vercel hides variables from the browser unless they start with VITE_.' 
+      : 'Переменная VITE_API_KEY отсутствует. Vercel скрывает переменные от браузера, если они не начинаются с VITE_.',
   };
 
   useEffect(() => {
@@ -418,7 +418,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
               </div>
               <p className="text-sm mb-4 leading-relaxed opacity-90">{t.configErrorDesc}</p>
               <div className="text-xs font-mono bg-white/50 p-3 rounded border border-amber-200/50 mb-4">
-                 Key: API_KEY<br/>
+                 Key: VITE_API_KEY<br/>
                  Value: AIzaSy...
               </div>
               <a href="https://vercel.com/docs/projects/environment-variables" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-amber-700 hover:text-amber-900 border-b border-amber-300 pb-0.5">
