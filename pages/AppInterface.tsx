@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut } from 'lucide-react';
+import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings } from 'lucide-react';
 import { generateFormFromAudio, generateFormFromText } from '../services/geminiService';
 import { Form075Data, Language, User } from '../types';
 
@@ -19,6 +18,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
   const [generatedData, setGeneratedData] = useState<Form075Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isConfigError, setIsConfigError] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -36,6 +36,10 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     processing: language === 'en' ? 'Processing...' : 'Обработка...',
     previewTitle: language === 'en' ? 'Document Preview' : 'Предпросмотр Документа',
     reset: language === 'en' ? 'Reset' : 'Сброс',
+    configErrorTitle: language === 'en' ? 'Configuration Required' : 'Требуется Настройка',
+    configErrorDesc: language === 'en' 
+      ? 'The AI service could not be initialized. This usually means the API_KEY environment variable is missing in your deployment settings.' 
+      : 'Сервис ИИ не инициализирован. Обычно это означает, что переменная окружения API_KEY отсутствует в настройках деплоя.',
   };
 
   useEffect(() => {
@@ -71,6 +75,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
   const startRecording = async () => {
     try {
       setError(null);
+      setIsConfigError(false);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       chunksRef.current = [];
@@ -115,6 +120,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     const file = event.target.files?.[0];
     if (file) {
        setError(null);
+       setIsConfigError(false);
        setGeneratedData(null);
        setAudioBlob(file);
        setElapsedTime(0);
@@ -124,6 +130,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
   const handleGenerate = async () => {
     setIsProcessing(true);
     setError(null);
+    setIsConfigError(false);
 
     try {
       let data: Form075Data;
@@ -147,8 +154,17 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
       }
 
       setGeneratedData(data);
-    } catch (err) {
-      setError("Failed to generate form. Please try again.");
+    } catch (err: any) {
+      console.error("Generation failed:", err);
+      
+      const errorMessage = err?.message || "";
+      
+      // Check for specific configuration errors
+      if (errorMessage === "MISSING_API_KEY" || errorMessage.includes("API Key") || errorMessage.includes("API_KEY")) {
+        setIsConfigError(true);
+      } else {
+        setError("Failed to generate form. Please try again.");
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -388,8 +404,26 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
           </button>
           
           {error && (
-            <div className="p-4 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100">
-              {error}
+            <div className="p-4 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 break-words flex gap-2 items-start">
+               <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+               <span>{error}</span>
+            </div>
+          )}
+
+          {isConfigError && (
+            <div className="p-6 bg-amber-50 rounded-xl border border-amber-100 text-amber-900 animate-fade-in-up">
+              <div className="flex items-center gap-2 mb-3">
+                 <Settings className="text-amber-600" size={20} />
+                 <h3 className="font-semibold">{t.configErrorTitle}</h3>
+              </div>
+              <p className="text-sm mb-4 leading-relaxed opacity-90">{t.configErrorDesc}</p>
+              <div className="text-xs font-mono bg-white/50 p-3 rounded border border-amber-200/50 mb-4">
+                 Key: API_KEY<br/>
+                 Value: AIzaSy...
+              </div>
+              <a href="https://vercel.com/docs/projects/environment-variables" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-amber-700 hover:text-amber-900 border-b border-amber-300 pb-0.5">
+                 Read Vercel Documentation &rarr;
+              </a>
             </div>
           )}
         </div>

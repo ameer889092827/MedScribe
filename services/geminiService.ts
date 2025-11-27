@@ -6,7 +6,16 @@ let aiInstance: GoogleGenAI | null = null;
 
 const getAI = () => {
   if (!aiInstance) {
-    aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Safely access process.env.API_KEY
+    // Note: In some build environments, accessing process.env might fail if process is undefined.
+    const apiKey = process.env.API_KEY;
+
+    if (!apiKey || apiKey === 'undefined' || apiKey.trim() === '') {
+      console.error("API_KEY is missing or invalid in environment variables.");
+      throw new Error("MISSING_API_KEY");
+    }
+    
+    aiInstance = new GoogleGenAI({ apiKey: apiKey });
   }
   return aiInstance;
 };
@@ -82,11 +91,11 @@ export const generateFormFromAudio = async (audioBlob: Blob): Promise<Form075Dat
       },
     });
 
-    if (!response.text) throw new Error("No response generated");
+    if (!response.text) throw new Error("No response generated from AI model");
     return JSON.parse(response.text) as Form075Data;
 
   } catch (error) {
-    console.error("Error processing medical audio:", error);
+    console.error("Gemini Service Error (Audio):", error);
     throw error;
   }
 };
@@ -118,11 +127,11 @@ export const generateFormFromText = async (text: string): Promise<Form075Data> =
       },
     });
 
-    if (!response.text) throw new Error("No response generated");
+    if (!response.text) throw new Error("No response generated from AI model");
     return JSON.parse(response.text) as Form075Data;
 
   } catch (error) {
-    console.error("Error processing text:", error);
+    console.error("Gemini Service Error (Text):", error);
     throw error;
   }
 };
