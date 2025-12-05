@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { Form075Data, Form027Data, Form003Data, FormType } from "../types";
+import { Form075Data, Form027Data, Form003Data, FormType, ConsultationRecord, AnalyticsInsight } from "../types";
 
 // Initialize Gemini Client Lazy
 let aiInstance: GoogleGenAI | null = null;
@@ -151,6 +151,109 @@ const getSchemaForForm = (formType: FormType): Schema => {
   if (formType === '027') return schema027;
   if (formType === '003') return schema003;
   return schema075;
+};
+
+// --- NEW FUNCTION: Detect Intent ---
+export const identifyFormType = async (input: Blob | string): Promise<FormType | null> => {
+  try {
+    const ai = getAI();
+    let parts: any[] = [];
+    
+    if (typeof input === 'string') {
+      parts = [{ text: `Analyze this text. Did the doctor explicitly ask to CREATE or COMPOSE a specific form type? 
+      Look for "Form 075", "075", "Form 027", "027", "Form 003", "003".
+      If yes, return the number (e.g. "075"). If not, return "null".
+      Text: "${input}"` }];
+    } else {
+       const base64Audio = await blobToBase64(input);
+       parts = [
+         { inlineData: { mimeType: input.type || "audio/webm", data: base64Audio } },
+         { text: `Analyze this audio. Did the doctor explicitly ask to CREATE or COMPOSE a specific form type? 
+         Look for "Form 075", "075", "Form 027", "027", "Form 003", "003".
+         If yes, return the number (e.g. "075"). If not, return "null".` }
+       ];
+    }
+
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: { parts: parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+           type: Type.OBJECT,
+           properties: {
+             detectedForm: { type: Type.STRING, enum: ["075", "027", "003", "null"] }
+           }
+        }
+      }
+    });
+
+    if (response.text) {
+      const json = JSON.parse(response.text);
+      if (json.detectedForm && json.detectedForm !== "null") {
+        return json.detectedForm as FormType;
+      }
+    }
+    return null;
+  } catch (e) {
+    console.warn("Intent detection failed", e);
+    return null;
+  }
+};
+
+// --- NEW FUNCTION: Generate Doctor Insights ---
+export const generateDoctorInsights = async (history: ConsultationRecord[]): Promise<AnalyticsInsight> => {
+  try {
+     const ai = getAI();
+     const summaries = history.slice(0, 30).map(h => `- ${new Date(h.timestamp).toLocaleDateString()}: [Form ${h.formType}] ${h.summary}`).join("\n");
+     const prompt = `
+       You are an advanced medical analytics AI. Analyze the doctor's recent consultation history.
+       
+       HISTORY DATA:
+       ${summaries}
+
+       TASK:
+       Generate a "Spotify Wrapped" style report for the doctor. Be professional yet engaging.
+       
+       OUTPUT JSON:
+       1. title: A catchy title like "Respiratory Month" or "The Cardio Hero".
+       2. narrative: A 2-3 sentence summary of what they treated most (e.g. "You treated 15 patients this month. 40% were respiratory cases. You saved approximately 5 hours of paperwork.").
+       3. topCondition: The most common medical issue found in summaries.
+       4. patientCountStr: A string like "42 Patients" (count based on input).
+       5. efficiencyGain: Estimate time saved (approx 15 mins per form). E.g. "12 Hours Saved".
+     `;
+
+     const response = await ai.models.generateContent({
+       model: modelId,
+       contents: { parts: [{ text: prompt }] },
+       config: {
+         responseMimeType: "application/json",
+         responseSchema: {
+           type: Type.OBJECT,
+           properties: {
+             title: {type: Type.STRING},
+             narrative: {type: Type.STRING},
+             topCondition: {type: Type.STRING},
+             patientCountStr: {type: Type.STRING},
+             efficiencyGain: {type: Type.STRING},
+           }
+         }
+       }
+     });
+
+     return JSON.parse(response.text!) as AnalyticsInsight;
+
+  } catch (e) {
+    console.error("Analytics failed", e);
+    // Fallback
+    return {
+      title: "Your Medical Month",
+      narrative: "You have been active! Keep generating forms to see detailed insights.",
+      topCondition: "General Practice",
+      patientCountStr: `${history.length} Patients`,
+      efficiencyGain: `${Math.round(history.length * 0.25)} Hours Saved`
+    };
+  }
 };
 
 export const generateFormFromAudio = async (audioBlob: Blob, formType: FormType = '075'): Promise<any> => {

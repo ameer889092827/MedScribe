@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings, ChevronDown, Check, History, Sparkles, FileType } from 'lucide-react';
-import { generateFormFromAudio, generateFormFromText, setManualApiKey } from '../services/geminiService';
+import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings, ChevronDown, Check, History, Sparkles, FileType, Command } from 'lucide-react';
+import { generateFormFromAudio, generateFormFromText, setManualApiKey, identifyFormType } from '../services/geminiService';
 import { Form075Data, Form027Data, Form003Data, Language, User, FormType, ConsultationRecord } from '../types';
 
 interface AppInterfaceProps {
@@ -19,6 +19,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(''); // New status state
   
   const [generatedData, setGeneratedData] = useState<any | null>(null);
   const [history, setHistory] = useState<ConsultationRecord[]>([]);
@@ -42,6 +43,8 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     pasteText: language === 'en' ? 'Paste Notes / Dictation' : 'Вставьте заметки / Диктовку',
     generate: language === 'en' ? 'Generate Document' : 'Создать документ',
     processing: language === 'en' ? 'Analyzing...' : 'Анализ...',
+    listeningForCommands: language === 'en' ? 'Checking for voice commands...' : 'Проверка голосовых команд...',
+    switchingForm: language === 'en' ? 'Switching form to ' : 'Переключение формы на ',
     previewTitle: language === 'en' ? 'Preview' : 'Предпросмотр',
     historyTitle: language === 'en' ? 'History' : 'Архив',
     reset: language === 'en' ? 'Reset' : 'Сброс',
@@ -154,15 +157,33 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     setIsProcessing(true);
     setError(null);
     setIsConfigError(false);
-
+    setStatusMessage(t.listeningForCommands);
+    
     try {
+      // 1. Check for Voice Commands (Intent)
+      let targetForm = selectedForm;
+      const input = activeTab === 'audio' ? audioBlob! : textInput;
+      
+      const detectedForm = await identifyFormType(input);
+      
+      if (detectedForm && detectedForm !== selectedForm) {
+        setStatusMessage(`${t.switchingForm} ${detectedForm}...`);
+        setSelectedForm(detectedForm);
+        targetForm = detectedForm;
+        // Small delay to let user see the status change
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      setStatusMessage(t.processing);
+
+      // 2. Generate Data
       let data: any;
       if (activeTab === 'audio') {
         if (!audioBlob) return;
-        data = await generateFormFromAudio(audioBlob, selectedForm);
+        data = await generateFormFromAudio(audioBlob, targetForm);
       } else {
         if (!textInput.trim()) return;
-        data = await generateFormFromText(textInput, selectedForm);
+        data = await generateFormFromText(textInput, targetForm);
       }
 
       if (user) {
@@ -174,7 +195,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
       }
 
       setGeneratedData(data);
-      addToHistory(data, selectedForm);
+      addToHistory(data, targetForm);
 
     } catch (err: any) {
       console.error("Generation failed:", err);
@@ -186,6 +207,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
       }
     } finally {
       setIsProcessing(false);
+      setStatusMessage('');
     }
   };
 
@@ -402,10 +424,23 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
             ) : (
                 <textarea className="w-full h-[300px] bg-gray-50/50 p-4 rounded-xl border border-transparent focus:border-blue-100 focus:bg-white focus:ring-0 resize-none text-gray-700 text-sm leading-relaxed placeholder:text-gray-300 transition-all outline-none" placeholder={t.pasteText} value={textInput} onChange={(e) => setTextInput(e.target.value)} />
             )}
+            
+            {/* Voice Command Hint */}
+            <div className="mt-4 text-[10px] text-gray-400 text-center flex items-center justify-center gap-1">
+              <Command size={10} />
+              <span>Tip: Say "Compose form 003" to auto-switch templates.</span>
+            </div>
           </div>
 
           <button disabled={!isReadyToGenerate(activeTab, audioBlob, textInput) || isProcessing} onClick={handleGenerate} className={`w-full py-4 rounded-xl font-medium text-base flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/10 ${!isReadyToGenerate(activeTab, audioBlob, textInput) ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-[1.01] active:scale-[0.99]'}`}>
-            {isProcessing ? <><Loader2 className="animate-spin" size={18} /> {t.processing}</> : <>{t.generate} <Sparkles size={18} className="text-blue-200" /></>}
+            {isProcessing ? (
+              <>
+                 <Loader2 className="animate-spin" size={18} /> 
+                 <span>{statusMessage || t.processing}</span>
+              </>
+            ) : (
+              <>{t.generate} <Sparkles size={18} className="text-blue-200" /></>
+            )}
           </button>
           
           {error && <div className="p-4 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex gap-2"><AlertTriangle size={16} className="mt-0.5" />{error}</div>}

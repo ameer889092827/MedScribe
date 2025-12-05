@@ -22,6 +22,7 @@ export interface User {
   licenseId?: string;
   signatureImage?: string; // Base64 string for signature
   stampImage?: string; // Base64 string for round stamp
+  profilePhoto?: string; // Base64 string for profile photo
 }
 
 export type FormType = '075' | '027' | '003';
@@ -33,6 +34,14 @@ export interface ConsultationRecord {
   formType: FormType;
   summary: string;
   data: any;
+}
+
+export interface AnalyticsInsight {
+  title: string;
+  narrative: string;
+  topCondition: string;
+  patientCountStr: string;
+  efficiencyGain: string;
 }
 
 // Base interface for common fields

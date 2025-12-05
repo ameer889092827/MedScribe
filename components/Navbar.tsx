@@ -92,8 +92,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, setPage, language, setLang
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-3 cursor-pointer p-1 pr-3 rounded-full hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100"
               >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md ring-2 ring-white">
-                  <span className="font-bold text-xs">{user.name.charAt(0)}</span>
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md ring-2 ring-white overflow-hidden">
+                   {user.profilePhoto ? (
+                     <img src={user.profilePhoto} alt="User" className="w-full h-full object-cover" />
+                   ) : (
+                     <span className="font-bold text-xs">{user.name.charAt(0)}</span>
+                   )}
                 </div>
                 <div className="text-right hidden sm:block">
                    <p className="text-xs font-bold text-gray-900 leading-none mb-0.5">{user.name.split(' ')[0]}</p>

@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { User, UserRole, Page, Language } from '../types';
-import { Stethoscope, Building2, ArrowRight, Upload, Check, Stamp } from 'lucide-react';
+import { Stethoscope, Building2, ArrowRight, Upload, Check, Stamp, Camera } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -22,6 +23,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, setPage, language }) => {
   // Images
   const [sigImage, setSigImage] = useState<string>('');
   const [stampImage, setStampImage] = useState<string>('');
+  const [profileImage, setProfileImage] = useState<string>('');
 
   const t = {
     welcomeBack: language === 'en' ? 'Welcome Back' : 'С возвращением',
@@ -43,6 +45,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, setPage, language }) => {
     signIn: language === 'en' ? 'Sign in' : 'Войти',
     uploadSig: language === 'en' ? 'Upload Signature (Optional)' : 'Загрузить подпись (Необяз.)',
     uploadStamp: language === 'en' ? 'Upload Stamp (Optional)' : 'Загрузить печать (Необяз.)',
+    uploadPhoto: language === 'en' ? 'Photo' : 'Фото',
+    change: language === 'en' ? 'Change' : 'Изменить',
   };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>, setter: (s: string) => void) => {
@@ -67,7 +71,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, setPage, language }) => {
       specialty: specialty || 'Therapist',
       licenseId: license || 'KZ-0000000',
       signatureImage: sigImage,
-      stampImage: stampImage
+      stampImage: stampImage,
+      profilePhoto: profileImage
     };
     onLogin(newUser);
   };
@@ -92,6 +97,28 @@ const Login: React.FC<LoginProps> = ({ onLogin, setPage, language }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
+          
+          {isRegistering && (
+            <div className="flex justify-center mb-2">
+                 <label className="relative cursor-pointer group">
+                   <div className={`w-24 h-24 rounded-full flex items-center justify-center border-2 transition-all overflow-hidden ${profileImage ? 'border-blue-500' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+                     {profileImage ? (
+                       <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                     ) : (
+                       <div className="text-center text-gray-400">
+                         <Camera size={24} className="mx-auto mb-1" />
+                         <span className="text-[10px] font-bold uppercase">{t.uploadPhoto}</span>
+                       </div>
+                     )}
+                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full text-white text-xs font-bold">
+                       {t.change}
+                     </div>
+                   </div>
+                   <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e, setProfileImage)} />
+                 </label>
+            </div>
+          )}
+
           {isRegistering && (
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">{t.fullName}</label>
