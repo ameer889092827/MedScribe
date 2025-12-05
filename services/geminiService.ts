@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { Form075Data } from "../types";
+import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { Form075Data, Form027Data, Form003Data, FormType } from "../types";
 
 // Initialize Gemini Client Lazy
 let aiInstance: GoogleGenAI | null = null;
@@ -7,19 +7,17 @@ let manualApiKey: string = '';
 
 export const setManualApiKey = (key: string) => {
   manualApiKey = key;
-  aiInstance = null; // Reset instance to force recreation with new key
+  aiInstance = null;
 };
 
 const getAI = () => {
   if (!aiInstance) {
     let apiKey = manualApiKey;
 
-    // 1. Try Vite standard way (import.meta.env)
     if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) {
       apiKey = (import.meta as any).env.VITE_API_KEY || '';
     }
 
-    // 2. Fallback to process.env (Legacy/CRA/Next.js compat)
     if (!apiKey && typeof process !== 'undefined' && process.env) {
       apiKey = process.env.VITE_API_KEY || 
                process.env.REACT_APP_API_KEY || 
@@ -28,20 +26,12 @@ const getAI = () => {
                '';
     }
 
-    // Sanitize: Remove any accidental quotes users might paste in Vercel
     if (apiKey) {
       apiKey = apiKey.replace(/["']/g, "").trim();
     }
 
-    // Debugging Log (Safe, doesn't show full key)
-    console.log("MedScribe AI Init:", { 
-      keyExists: !!apiKey, 
-      keyLength: apiKey?.length,
-      prefix: apiKey?.substring(0, 4) 
-    });
-
     if (!apiKey || apiKey === 'undefined' || apiKey.trim() === '') {
-      console.error("API Key is missing. Environment check failed.");
+      console.error("API Key is missing.");
       throw new Error("MISSING_API_KEY");
     }
     
@@ -65,27 +55,105 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
-const formSchema = {
+// --- SCHEMAS ---
+
+const schema075: Schema = {
   type: Type.OBJECT,
   properties: {
-    healthcareFacility: { type: Type.STRING, description: "Название медицинской организации" },
-    iin: { type: Type.STRING, description: "ИИН пациента" },
-    patientName: { type: Type.STRING, description: "ФИО пациента (In Russian)" },
-    dateOfBirth: { type: Type.STRING, description: "Дата рождения (DD.MM.YYYY)" },
-    gender: { type: Type.STRING, enum: ["male", "female"], description: "Пол (male/female)" },
-    livingAddress: { type: Type.STRING, description: "Адрес проживания (In Russian)" },
-    registrationAddress: { type: Type.STRING, description: "Адрес регистрации" },
-    workPlace: { type: Type.STRING, description: "Место работы или учебы" },
-    position: { type: Type.STRING, description: "Должность" },
-    lastCheckupDate: { type: Type.STRING, description: "Дата последнего медосмотра" },
-    pastIllnesses: { type: Type.STRING, description: "Заболевания, выявленные с момента последнего медосмотра" },
-    doctorName: { type: Type.STRING, description: "ФИО Врача" },
-    conclusion: { type: Type.STRING, description: "Заключение терапевта (Здоров / Годен к работе/учебе)" },
+    shortSummary: { type: Type.STRING, description: "One sentence clinical summary (e.g., 'Patient complains of cough, diagnosed with ARVI, treatment prescribed.')" },
+    healthcareFacility: { type: Type.STRING },
+    iin: { type: Type.STRING },
+    patientName: { type: Type.STRING },
+    dateOfBirth: { type: Type.STRING },
+    gender: { type: Type.STRING, enum: ["male", "female"] },
+    livingAddress: { type: Type.STRING },
+    registrationAddress: { type: Type.STRING },
+    workPlace: { type: Type.STRING },
+    position: { type: Type.STRING },
+    lastCheckupDate: { type: Type.STRING },
+    pastIllnesses: { type: Type.STRING },
+    doctorName: { type: Type.STRING },
+    conclusion: { type: Type.STRING },
   },
-  required: ["patientName", "gender"],
+  required: ["patientName", "gender", "shortSummary"],
 };
 
-export const generateFormFromAudio = async (audioBlob: Blob): Promise<Form075Data> => {
+const schema027: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    shortSummary: { type: Type.STRING },
+    date: { type: Type.STRING },
+    healthcareFacility: { type: Type.STRING },
+    idNumber: { type: Type.STRING },
+    patientName: { type: Type.STRING },
+    dateOfBirth: { type: Type.STRING },
+    address: { type: Type.STRING },
+    workPlace: { type: Type.STRING },
+    diagnosis: { type: Type.STRING },
+    conclusion: { type: Type.STRING },
+    recommendations: { type: Type.STRING },
+    doctorName: { type: Type.STRING },
+  },
+  required: ["patientName", "conclusion", "shortSummary"],
+};
+
+const schema003: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    shortSummary: { type: Type.STRING },
+    healthcareFacility: { type: Type.STRING },
+    codeOkud: { type: Type.STRING },
+    codeOkpo: { type: Type.STRING },
+    admissionDate: { type: Type.STRING },
+    dischargeDate: { type: Type.STRING },
+    department: { type: Type.STRING },
+    ward: { type: Type.STRING },
+    daysSpent: { type: Type.STRING },
+    transportType: { type: Type.STRING, enum: ["walking", "stretcher", "wheelchair"] },
+    bloodType: { type: Type.STRING },
+    rhFactor: { type: Type.STRING },
+    sideEffects: { type: Type.STRING },
+    patientName: { type: Type.STRING },
+    gender: { type: Type.STRING, enum: ["male", "female"] },
+    age: { type: Type.STRING },
+    address: { type: Type.STRING },
+    phone: { type: Type.STRING },
+    workPlace: { type: Type.STRING },
+    referredBy: { type: Type.STRING },
+    emergency: { type: Type.BOOLEAN },
+    referralDiagnosis: { type: Type.STRING },
+    admissionDiagnosis: { type: Type.STRING },
+    clinicalDiagnosis: { type: Type.STRING },
+    diagnosisDate: { type: Type.STRING },
+    doctorName: { type: Type.STRING },
+  },
+  required: ["patientName", "gender", "age", "shortSummary"],
+};
+
+const getPromptForForm = (formType: FormType): string => {
+  const base = "You are an expert medical scribe assistant. Listen to the consultation OR the doctor's direct dictation. ";
+  const rules = `
+    CRITICAL RULES:
+    1. Values MUST be in Russian.
+    2. If details are missing, return an EMPTY STRING (""). 
+    3. DO NOT invent data.
+    4. Infer gender/age if context permits.
+    5. 'shortSummary' must be a concise 1-sentence overview (in Russian) of the patient's status.
+    6. Output valid JSON matching the schema.`;
+
+  if (formType === '075') return base + "Extract info for Kazakhstan Form 075/у (Medical Certificate)." + rules;
+  if (formType === '027') return base + "Extract info for Kazakhstan Form 027/у (Extract from medical record)." + rules;
+  if (formType === '003') return base + "Extract info for Kazakhstan Form 003/у (Inpatient Card)." + rules;
+  return base + rules;
+};
+
+const getSchemaForForm = (formType: FormType): Schema => {
+  if (formType === '027') return schema027;
+  if (formType === '003') return schema003;
+  return schema075;
+};
+
+export const generateFormFromAudio = async (audioBlob: Blob, formType: FormType = '075'): Promise<any> => {
   try {
     const ai = getAI();
     const base64Audio = await blobToBase64(audioBlob);
@@ -100,29 +168,18 @@ export const generateFormFromAudio = async (audioBlob: Blob): Promise<Form075Dat
               data: base64Audio,
             },
           },
-          {
-            text: `You are an expert medical scribe assistant. 
-            Listen to this doctor-patient consultation. 
-            Extract the relevant information to fill out Kazakhstan Medical Form 075/у.
-            
-            CRITICAL RULES:
-            1. Values MUST be in Russian.
-            2. If specific details (like IIN, address, workplace) are NOT mentioned in the audio, return an EMPTY STRING (""). 
-            3. DO NOT invent, hallucinate, or generate placeholder data. Only use what is explicitly said.
-            4. For gender, infer from voice or context.
-            5. Output strictly valid JSON matching the schema.`
-          }
+          { text: getPromptForForm(formType) }
         ]
       },
       config: {
         responseMimeType: "application/json",
-        responseSchema: formSchema,
-        temperature: 0.1, // Lower temperature for more deterministic/factual output
+        responseSchema: getSchemaForForm(formType),
+        temperature: 0.1,
       },
     });
 
-    if (!response.text) throw new Error("No response generated from AI model");
-    return JSON.parse(response.text) as Form075Data;
+    if (!response.text) throw new Error("No response generated");
+    return JSON.parse(response.text);
 
   } catch (error) {
     console.error("Gemini Service Error (Audio):", error);
@@ -130,35 +187,25 @@ export const generateFormFromAudio = async (audioBlob: Blob): Promise<Form075Dat
   }
 };
 
-export const generateFormFromText = async (text: string): Promise<Form075Data> => {
+export const generateFormFromText = async (text: string, formType: FormType = '075'): Promise<any> => {
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: modelId,
       contents: {
         parts: [
-          {
-            text: `Analyze the following medical consultation notes and extract information to fill out Kazakhstan Medical Form 075/у.
-            
-            Notes: "${text}"
-            
-            CRITICAL RULES:
-            1. Values MUST be in Russian.
-            2. If specific details are missing in the text, return an EMPTY STRING (""). 
-            3. DO NOT invent or placeholder data.
-            4. Output strictly valid JSON.`
-          }
+          { text: getPromptForForm(formType) + `\n\nNotes/Dictation: "${text}"` }
         ]
       },
       config: {
         responseMimeType: "application/json",
-        responseSchema: formSchema,
+        responseSchema: getSchemaForForm(formType),
         temperature: 0.1,
       },
     });
 
-    if (!response.text) throw new Error("No response generated from AI model");
-    return JSON.parse(response.text) as Form075Data;
+    if (!response.text) throw new Error("No response generated");
+    return JSON.parse(response.text);
 
   } catch (error) {
     console.error("Gemini Service Error (Text):", error);

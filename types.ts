@@ -4,7 +4,8 @@ export enum Page {
   APP = 'app',
   ABOUT = 'about',
   PRICING = 'pricing',
-  LOGIN = 'login'
+  LOGIN = 'login',
+  PROFILE = 'profile'
 }
 
 export type Language = 'en' | 'ru';
@@ -13,33 +14,86 @@ export type UserRole = 'doctor' | 'clinic';
 
 export interface User {
   id: string;
-  name: string; // Doctor's name or Admin name
+  name: string; 
   email: string;
   role: UserRole;
-  organization?: string; // Clinic name
-  specialty?: string; // For doctors
-  licenseId?: string; // Doctor's ID/license for the form
+  organization?: string;
+  specialty?: string; 
+  licenseId?: string;
+  signatureImage?: string; // Base64 string for signature
+  stampImage?: string; // Base64 string for round stamp
 }
 
-export interface Form075Data {
-  healthcareFacility: string; // Наименование МО
-  iin: string; // ИИН
-  patientName: string; // Ф.И.О.
-  dateOfBirth: string; // Дата рождения
-  gender: 'male' | 'female'; // Пол
-  livingAddress: string; // Адрес проживания
-  registrationAddress: string; // Адрес регистрации
-  workPlace: string; // Место работы/учебы
-  position: string; // Должность
-  lastCheckupDate: string; // Дата последнего медосмотра
-  pastIllnesses: string; // Заболевания
-  doctorName: string; // Врач Ф.И.О.
-  conclusion: string; // Заключение терапевта
+export type FormType = '075' | '027' | '003';
+
+export interface ConsultationRecord {
+  id: string;
+  timestamp: number;
+  patientName: string;
+  formType: FormType;
+  summary: string;
+  data: any;
 }
 
-export interface AudioState {
-  isRecording: boolean;
-  audioBlob: Blob | null;
-  audioUrl: string | null;
-  durationSec: number;
+// Base interface for common fields
+interface BaseFormData {
+  shortSummary: string; // Feature #4: 1-sentence summary
+}
+
+export interface Form075Data extends BaseFormData {
+  healthcareFacility: string;
+  iin: string;
+  patientName: string;
+  dateOfBirth: string;
+  gender: 'male' | 'female';
+  livingAddress: string;
+  registrationAddress: string;
+  workPlace: string;
+  position: string;
+  lastCheckupDate: string;
+  pastIllnesses: string;
+  doctorName: string;
+  conclusion: string;
+}
+
+export interface Form027Data extends BaseFormData {
+  date: string;
+  healthcareFacility: string;
+  idNumber: string;
+  patientName: string;
+  dateOfBirth: string;
+  address: string;
+  workPlace: string;
+  diagnosis: string;
+  conclusion: string;
+  recommendations: string;
+  doctorName: string;
+}
+
+export interface Form003Data extends BaseFormData {
+  healthcareFacility: string;
+  codeOkud: string;
+  codeOkpo: string;
+  admissionDate: string;
+  dischargeDate: string;
+  department: string;
+  ward: string;
+  daysSpent: string;
+  transportType: 'walking' | 'stretcher' | 'wheelchair';
+  bloodType: string;
+  rhFactor: string;
+  sideEffects: string;
+  patientName: string;
+  gender: 'male' | 'female';
+  age: string;
+  address: string;
+  phone: string;
+  workPlace: string;
+  referredBy: string;
+  emergency: boolean;
+  referralDiagnosis: string;
+  admissionDiagnosis: string;
+  clinicalDiagnosis: string;
+  diagnosisDate: string;
+  doctorName: string;
 }

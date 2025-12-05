@@ -7,6 +7,7 @@ import AppInterface from './pages/AppInterface';
 import About from './pages/About';
 import Pricing from './pages/Pricing';
 import Login from './pages/Login';
+import Profile from './pages/Profile';
 import { Page, Language, User } from './types';
 
 const App: React.FC = () => {
@@ -36,6 +37,8 @@ const App: React.FC = () => {
         return <Pricing setPage={setCurrentPage} language={language} />;
       case Page.LOGIN:
         return <Login onLogin={handleLogin} setPage={setCurrentPage} language={language} />;
+      case Page.PROFILE:
+        return <Profile user={user} language={language} />;
       default:
         return <Home setPage={setCurrentPage} language={language} />;
     }
