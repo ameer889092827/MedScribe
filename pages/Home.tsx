@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ArrowRight, Mic, Sparkles, ScrollText, History, Stamp, FileText } from 'lucide-react';
 import { Page, Language } from '../types';
@@ -51,34 +50,34 @@ const Home: React.FC<HomeProps> = ({ setPage, language }) => {
       </div>
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-6 pt-16 pb-32 text-center relative z-10">
+      <section className="max-w-7xl mx-auto px-4 md:px-6 pt-12 md:pt-16 pb-20 md:pb-32 text-center relative z-10">
         
-        <div className="inline-flex items-center gap-2 mb-10 px-4 py-2 rounded-full bg-white border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] text-blue-600 text-[11px] font-bold tracking-[0.15em] uppercase animate-fade-in-up">
+        <div className="inline-flex items-center gap-2 mb-8 md:mb-10 px-4 py-2 rounded-full bg-white border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] text-blue-600 text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase animate-fade-in-up">
           <Sparkles size={12} /> {t.badge}
         </div>
         
-        <h1 className="text-6xl md:text-7xl lg:text-8xl font-medium tracking-tight text-gray-900 mb-8 leading-[1.05] drop-shadow-sm">
+        <h1 className="text-4xl md:text-6xl lg:text-8xl font-medium tracking-tight text-gray-900 mb-6 md:mb-8 leading-[1.05] drop-shadow-sm">
           <span className="block">{t.h1Main}</span>
           <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 pb-2">
             {t.h1Sub}
           </span>
         </h1>
 
-        <p className="text-xl md:text-2xl text-gray-500 max-w-2xl mx-auto mb-14 font-light leading-relaxed antialiased">
+        <p className="text-lg md:text-2xl text-gray-500 max-w-2xl mx-auto mb-10 md:mb-14 font-light leading-relaxed antialiased">
           {t.desc}
         </p>
         
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-5 px-4">
           <button 
             onClick={() => setPage(Page.APP)}
-            className="group px-10 py-5 bg-[#0F172A] text-white rounded-2xl font-medium text-lg transition-all hover:bg-blue-600 hover:shadow-2xl hover:shadow-blue-500/30 flex items-center gap-3 active:scale-95"
+            className="w-full sm:w-auto px-8 md:px-10 py-4 md:py-5 bg-[#0F172A] text-white rounded-2xl font-medium text-base md:text-lg transition-all hover:bg-blue-600 hover:shadow-2xl hover:shadow-blue-500/30 flex items-center justify-center gap-3 active:scale-95"
           >
             {t.start}
             <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
           </button>
           <button 
              onClick={() => setPage(Page.ABOUT)}
-             className="px-10 py-5 bg-white text-gray-600 border border-gray-200 rounded-2xl font-medium text-lg transition-all hover:bg-gray-50 hover:border-gray-300 shadow-sm hover:shadow-md active:scale-95"
+             className="w-full sm:w-auto px-8 md:px-10 py-4 md:py-5 bg-white text-gray-600 border border-gray-200 rounded-2xl font-medium text-base md:text-lg transition-all hover:bg-gray-50 hover:border-gray-300 shadow-sm hover:shadow-md active:scale-95"
           >
             {t.learn}
           </button>
@@ -86,50 +85,50 @@ const Home: React.FC<HomeProps> = ({ setPage, language }) => {
       </section>
 
       {/* Luxury Dark Feature Grid */}
-      <section className="max-w-7xl mx-auto px-6 pb-40">
+      <section className="max-w-7xl mx-auto px-4 md:px-6 pb-24 md:pb-40">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Card 1 */}
-            <div className="group relative bg-[#151B28] rounded-[2.5rem] p-10 border border-white/5 shadow-2xl shadow-gray-900/10 hover:shadow-blue-900/10 transition-all duration-500 hover:-translate-y-2 overflow-hidden">
-                <div className="absolute top-0 right-6 text-[12rem] font-serif leading-none text-white opacity-[0.02] group-hover:opacity-[0.04] transition-opacity select-none pointer-events-none">1</div>
-                <div className="relative z-10 h-full flex flex-col justify-between min-h-[300px]">
+            <div className="group relative bg-[#151B28] rounded-[2rem] md:rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl shadow-gray-900/10 hover:shadow-blue-900/10 transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+                <div className="absolute top-0 right-6 text-[8rem] md:text-[12rem] font-serif leading-none text-white opacity-[0.02] group-hover:opacity-[0.04] transition-opacity select-none pointer-events-none">1</div>
+                <div className="relative z-10 h-full flex flex-col justify-between min-h-[250px] md:min-h-[300px]">
                     <div>
-                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 mb-8 border border-white/5 group-hover:bg-white/10 transition-colors">
-                            <Mic size={28} strokeWidth={1.5} />
+                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 mb-6 md:mb-8 border border-white/5 group-hover:bg-white/10 transition-colors">
+                            <Mic size={24} md:size={28} strokeWidth={1.5} />
                         </div>
-                        <h3 className="text-2xl font-medium text-white mb-4">{t.step1Title}</h3>
+                        <h3 className="text-xl md:text-2xl font-medium text-white mb-3 md:mb-4">{t.step1Title}</h3>
                         <p className="text-gray-400 leading-relaxed font-light text-sm">{t.step1Desc}</p>
                     </div>
                 </div>
             </div>
 
             {/* Card 2 */}
-            <div className="group relative bg-[#151B28] rounded-[2.5rem] p-10 border border-white/5 shadow-2xl shadow-gray-900/10 hover:shadow-blue-900/10 transition-all duration-500 hover:-translate-y-2 overflow-hidden">
-                <div className="absolute top-0 right-6 text-[12rem] font-serif leading-none text-white opacity-[0.02] group-hover:opacity-[0.04] transition-opacity select-none pointer-events-none">2</div>
-                <div className="relative z-10 h-full flex flex-col justify-between min-h-[300px]">
+            <div className="group relative bg-[#151B28] rounded-[2rem] md:rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl shadow-gray-900/10 hover:shadow-blue-900/10 transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+                <div className="absolute top-0 right-6 text-[8rem] md:text-[12rem] font-serif leading-none text-white opacity-[0.02] group-hover:opacity-[0.04] transition-opacity select-none pointer-events-none">2</div>
+                <div className="relative z-10 h-full flex flex-col justify-between min-h-[250px] md:min-h-[300px]">
                     <div>
-                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 mb-8 border border-white/5 group-hover:bg-white/10 transition-colors">
-                            <Sparkles size={28} strokeWidth={1.5} />
+                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 mb-6 md:mb-8 border border-white/5 group-hover:bg-white/10 transition-colors">
+                            <Sparkles size={24} md:size={28} strokeWidth={1.5} />
                         </div>
-                        <h3 className="text-2xl font-medium text-white mb-4">{t.step2Title}</h3>
+                        <h3 className="text-xl md:text-2xl font-medium text-white mb-3 md:mb-4">{t.step2Title}</h3>
                         <p className="text-gray-400 leading-relaxed font-light text-sm">{t.step2Desc}</p>
                     </div>
                 </div>
             </div>
 
             {/* Card 3 */}
-            <div className="group relative bg-[#151B28] rounded-[2.5rem] p-10 border border-white/5 shadow-2xl shadow-gray-900/10 hover:shadow-blue-900/10 transition-all duration-500 hover:-translate-y-2 overflow-hidden">
-                <div className="absolute top-0 right-6 text-[12rem] font-serif leading-none text-white opacity-[0.02] group-hover:opacity-[0.04] transition-opacity select-none pointer-events-none">3</div>
-                <div className="relative z-10 h-full flex flex-col justify-between min-h-[300px]">
+            <div className="group relative bg-[#151B28] rounded-[2rem] md:rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl shadow-gray-900/10 hover:shadow-blue-900/10 transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+                <div className="absolute top-0 right-6 text-[8rem] md:text-[12rem] font-serif leading-none text-white opacity-[0.02] group-hover:opacity-[0.04] transition-opacity select-none pointer-events-none">3</div>
+                <div className="relative z-10 h-full flex flex-col justify-between min-h-[250px] md:min-h-[300px]">
                     <div>
-                        <div className="flex justify-between items-start mb-8">
-                            <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 border border-white/5 group-hover:bg-white/10 transition-colors">
-                                <FileText size={28} strokeWidth={1.5} />
+                        <div className="flex justify-between items-start mb-6 md:mb-8">
+                            <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 border border-white/5 group-hover:bg-white/10 transition-colors">
+                                <FileText size={24} md:size={28} strokeWidth={1.5} />
                             </div>
                             <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-md tracking-wider">NEW</span>
                         </div>
-                        <h3 className="text-2xl font-medium text-white mb-4">{t.step3Title}</h3>
-                        <p className="text-gray-400 leading-relaxed font-light text-sm mb-8">{t.step3Desc}</p>
+                        <h3 className="text-xl md:text-2xl font-medium text-white mb-3 md:mb-4">{t.step3Title}</h3>
+                        <p className="text-gray-400 leading-relaxed font-light text-sm mb-6 md:mb-8">{t.step3Desc}</p>
                     </div>
                      <div className="flex gap-2">
                          <div className="text-[10px] text-gray-400 border border-white/10 px-3 py-1.5 rounded-full hover:bg-white/5 transition-colors cursor-default">075/у</div>
@@ -142,19 +141,19 @@ const Home: React.FC<HomeProps> = ({ setPage, language }) => {
       </section>
 
       {/* Trust Section */}
-      <section className="py-24 bg-gray-50 border-t border-gray-100 relative">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-end">
+      <section className="py-16 md:py-24 bg-gray-50 border-t border-gray-100 relative">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 flex flex-col md:flex-row justify-between items-end">
             <div className="max-w-xl">
-                <h2 className="text-3xl font-light mb-6 whitespace-pre-line text-gray-900">{t.trustTitle}</h2>
+                <h2 className="text-2xl md:text-3xl font-light mb-6 whitespace-pre-line text-gray-900">{t.trustTitle}</h2>
                 <div className="h-1 w-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-6"></div>
-                <p className="text-gray-500 font-light leading-relaxed text-lg">
+                <p className="text-gray-500 font-light leading-relaxed text-base md:text-lg">
                     {t.trustDesc}
                 </p>
             </div>
-            <div className="mt-12 md:mt-0 flex flex-wrap gap-x-12 gap-y-4 text-gray-400 font-medium text-xs tracking-widest uppercase">
-                <span className="flex items-center gap-3"><div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div> ISO 27001 Ready</span>
-                <span className="flex items-center gap-3"><div className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div> GDPR Compliant</span>
-                <span className="flex items-center gap-3"><div className="w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div> KZ MOH Standard</span>
+            <div className="mt-10 md:mt-0 flex flex-wrap gap-x-8 md:gap-x-12 gap-y-4 text-gray-400 font-medium text-xs tracking-widest uppercase">
+                <span className="flex items-center gap-2 md:gap-3"><div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div> ISO 27001 Ready</span>
+                <span className="flex items-center gap-2 md:gap-3"><div className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div> GDPR Compliant</span>
+                <span className="flex items-center gap-2 md:gap-3"><div className="w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div> KZ MOH Standard</span>
             </div>
         </div>
       </section>

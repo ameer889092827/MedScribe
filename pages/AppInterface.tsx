@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings, ChevronDown, Check, History, Sparkles, FileType, Command } from 'lucide-react';
 import { generateFormFromAudio, generateFormFromText, setManualApiKey, identifyFormType } from '../services/geminiService';
@@ -377,11 +376,11 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 pb-20 px-6">
-      <div className="max-w-[1920px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-8">
+    <div className="min-h-screen bg-gray-50 pt-20 pb-20 px-4 md:px-6">
+      <div className="max-w-[1920px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-6">
         
         {/* LEFT COLUMN: Input */}
-        <div className="flex flex-col gap-6 no-print xl:col-span-4 h-fit sticky top-24">
+        <div className="flex flex-col gap-6 no-print xl:col-span-4 h-fit relative xl:sticky xl:top-24">
           
           <div>
             <h2 className="text-3xl font-medium text-gray-900 mb-1">{t.title}</h2>
@@ -428,7 +427,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
             {/* Voice Command Hint */}
             <div className="mt-4 text-[10px] text-gray-400 text-center flex items-center justify-center gap-1">
               <Command size={10} />
-              <span>Tip: Say "Compose form 003" to auto-switch templates.</span>
+              <span>Tip: Say "Compose form 003" (in EN, RU, or KZ) to auto-switch templates.</span>
             </div>
           </div>
 
@@ -480,7 +479,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
         <div className="flex flex-col gap-6 xl:col-span-8">
            
            {/* Toolbar */}
-           <div className="no-print flex flex-wrap gap-4 justify-between items-center bg-white p-3 rounded-2xl border border-gray-200 shadow-sm sticky top-24 z-20">
+           <div className="no-print flex flex-wrap gap-4 justify-between items-center bg-white p-3 rounded-2xl border border-gray-200 shadow-sm relative xl:sticky xl:top-24 z-20">
              <div className="flex items-center gap-2 pl-2">
                 <div className="relative" ref={dropdownRef}>
                     <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium text-gray-700">
@@ -529,7 +528,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
           )}
 
           {/* Document Preview Area */}
-          <div className="bg-gray-200/50 rounded-3xl border border-gray-300/50 shadow-inner h-[800px] overflow-auto flex justify-center p-8 relative print:h-auto print:overflow-visible print:bg-white print:p-0 print:border-none print:shadow-none">
+          <div className="bg-gray-200/50 rounded-3xl border border-gray-300/50 shadow-inner h-[500px] md:h-[800px] overflow-auto flex justify-center p-4 md:p-8 relative print:h-auto print:overflow-visible print:bg-white print:p-0 print:border-none print:shadow-none">
             <div className={`print-area bg-white shadow-2xl transition-transform origin-top duration-200 ${!generatedData ? 'flex items-center justify-center' : ''} print:shadow-none print:transform-none print:m-0`}
                 style={{ width: '794px', minHeight: '1123px', padding: '60px', transform: `scale(${zoomLevel})`, marginBottom: `${(zoomLevel - 1) * 1123}px` }}>
                 

@@ -131,10 +131,10 @@ const schema003: Schema = {
 };
 
 const getPromptForForm = (formType: FormType): string => {
-  const base = "You are an expert medical scribe assistant. Listen to the consultation OR the doctor's direct dictation. ";
+  const base = "You are an expert medical scribe assistant. Listen to the consultation OR the doctor's direct dictation. The input audio/text can be in English, Russian, or Kazakh. ";
   const rules = `
     CRITICAL RULES:
-    1. Values MUST be in Russian.
+    1. Output Values MUST be in Russian (as it is the standard language for Form 075/027/003 documentation). Translate findings from English or Kazakh to Russian if necessary.
     2. If details are missing, return an EMPTY STRING (""). 
     3. DO NOT invent data.
     4. Infer gender/age if context permits.
@@ -159,18 +159,24 @@ export const identifyFormType = async (input: Blob | string): Promise<FormType |
     const ai = getAI();
     let parts: any[] = [];
     
+    const promptText = `Analyze this input. The doctor might be speaking in English, Russian, or Kazakh.
+      Did the doctor explicitly ask to CREATE, COMPOSE, or SWITCH TO a specific form type? 
+      
+      Look for patterns like:
+      - English: "Form 075", "Form 027", "Form 003", "Compose 075"
+      - Russian: "Форма 075", "Форма 027", "Форма 003", "Создать 075"
+      - Kazakh: "075 нысаны", "027 нысаны", "003 нысаны", "075 форма"
+      - Or just the numbers "075", "027", "003" in a command context.
+
+      If yes, return the number (e.g. "075"). If not, return "null".`;
+
     if (typeof input === 'string') {
-      parts = [{ text: `Analyze this text. Did the doctor explicitly ask to CREATE or COMPOSE a specific form type? 
-      Look for "Form 075", "075", "Form 027", "027", "Form 003", "003".
-      If yes, return the number (e.g. "075"). If not, return "null".
-      Text: "${input}"` }];
+      parts = [{ text: `${promptText}\nText: "${input}"` }];
     } else {
        const base64Audio = await blobToBase64(input);
        parts = [
          { inlineData: { mimeType: input.type || "audio/webm", data: base64Audio } },
-         { text: `Analyze this audio. Did the doctor explicitly ask to CREATE or COMPOSE a specific form type? 
-         Look for "Form 075", "075", "Form 027", "027", "Form 003", "003".
-         If yes, return the number (e.g. "075"). If not, return "null".` }
+         { text: promptText }
        ];
     }
 
@@ -213,14 +219,16 @@ export const generateDoctorInsights = async (history: ConsultationRecord[]): Pro
        ${summaries}
 
        TASK:
-       Generate a "Spotify Wrapped" style report for the doctor. Be professional yet engaging.
+       Generate a "Spotify Wrapped" style report for the doctor.
+       The input data might be in English, Russian, or Kazakh.
+       The output "narrative" and "title" should be in the language that best fits the input context (or English/Russian as a default professional choice).
        
        OUTPUT JSON:
-       1. title: A catchy title like "Respiratory Month" or "The Cardio Hero".
-       2. narrative: A 2-3 sentence summary of what they treated most (e.g. "You treated 15 patients this month. 40% were respiratory cases. You saved approximately 5 hours of paperwork.").
-       3. topCondition: The most common medical issue found in summaries.
-       4. patientCountStr: A string like "42 Patients" (count based on input).
-       5. efficiencyGain: Estimate time saved (approx 15 mins per form). E.g. "12 Hours Saved".
+       1. title: A catchy title like "Respiratory Month" or "Месяц Кардиологии".
+       2. narrative: A 2-3 sentence summary of what they treated most.
+       3. topCondition: The most common medical issue found.
+       4. patientCountStr: A string like "42 Patients" / "42 Пациента".
+       5. efficiencyGain: Estimate time saved. E.g. "12 Hours Saved".
      `;
 
      const response = await ai.models.generateContent({
