@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Download, FileText, Loader2, RefreshCw, UploadCloud, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings, ChevronDown, Check, History, Sparkles, FileType, Command } from 'lucide-react';
-import { generateFormFromAudio, generateFormFromText, setManualApiKey, identifyFormType } from '../services/geminiService';
+import { Mic, Square, Download, FileText, Loader2, RefreshCw, AlignLeft, Printer, ZoomIn, ZoomOut, AlertTriangle, Settings, ChevronDown, Check, History, Sparkles, Command, Cpu } from 'lucide-react';
+import { generateForm, identifyFormType } from '../services/openRouterService';
 import { Form075Data, Form027Data, Form003Data, Language, User, FormType, ConsultationRecord } from '../types';
 
 interface AppInterfaceProps {
@@ -13,86 +14,106 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
   const [selectedForm, setSelectedForm] = useState<FormType>('075');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
+  // Audio State
   const [isRecording, setIsRecording] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [transcript, setTranscript] = useState('');
+  const [interimTranscript, setInterimTranscript] = useState(''); // New: For real-time feedback
+  
+  // App State
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState(''); // New status state
-  
+  const [statusMessage, setStatusMessage] = useState(''); 
   const [generatedData, setGeneratedData] = useState<any | null>(null);
   const [history, setHistory] = useState<ConsultationRecord[]>([]);
-  
   const [error, setError] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(0.85);
-  const [isConfigError, setIsConfigError] = useState(false);
-  const [manualKeyInput, setManualKeyInput] = useState('');
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const t = {
     title: language === 'en' ? 'Workspace' : 'Рабочая зона',
-    subtitle: language === 'en' ? 'Create new documentation' : 'Создать новую документацию',
+    subtitle: language === 'en' ? 'Powered by Qwen 2.5' : 'На базе Qwen 2.5',
     tapToRecord: language === 'en' ? 'Tap to Record' : 'Нажать для записи',
-    audioCaptured: language === 'en' ? 'Audio Captured' : 'Аудио записано',
-    upload: language === 'en' ? 'Or upload audio file' : 'Или загрузить файл',
+    recording: language === 'en' ? 'Listening...' : 'Слушаю...',
+    audioCaptured: language === 'en' ? 'Transcript Ready' : 'Транскрипт готов',
     pasteText: language === 'en' ? 'Paste Notes / Dictation' : 'Вставьте заметки / Диктовку',
     generate: language === 'en' ? 'Generate Document' : 'Создать документ',
-    processing: language === 'en' ? 'Analyzing...' : 'Анализ...',
-    listeningForCommands: language === 'en' ? 'Checking for voice commands...' : 'Проверка голосовых команд...',
+    processing: language === 'en' ? 'Thinking...' : 'Анализ...',
     switchingForm: language === 'en' ? 'Switching form to ' : 'Переключение формы на ',
-    previewTitle: language === 'en' ? 'Preview' : 'Предпросмотр',
     historyTitle: language === 'en' ? 'History' : 'Архив',
     reset: language === 'en' ? 'Reset' : 'Сброс',
-    configErrorTitle: language === 'en' ? 'Setup Required' : 'Требуется Настройка',
-    configErrorDesc: language === 'en' ? 'Missing VITE_API_KEY. REDEPLOY required.' : 'Отсутствует VITE_API_KEY. Требуется REPLOY.',
-    enterKeyManually: language === 'en' ? 'Enter API Key manually:' : 'Введите API Key вручную:',
-    saveKey: language === 'en' ? 'Save & Retry' : 'Сохранить',
-    clinicalSnapshot: language === 'en' ? 'Clinical Snapshot' : 'Клиническое резюме',
     downloadWord: language === 'en' ? 'Download Word (DOCX)' : 'Скачать Word (DOCX)',
-    print: language === 'en' ? 'Print / PDF' : 'Печать / PDF',
+    clinicalSnapshot: language === 'en' ? 'Clinical Snapshot' : 'Клиническое резюме',
+    provider: 'OpenRouter',
+    langIndicator: language === 'en' ? 'EN' : 'RU',
   };
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+    // Initialize Web Speech API
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        // This initial setting might be overridden by startRecording, 
+        // but we keep it for consistency.
+        recognition.lang = language === 'en' ? 'en-US' : 'ru-RU';
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+        recognition.onresult = (event: any) => {
+            let finalChunk = '';
+            let interimChunk = '';
+
+            // PERFORMANCE FIX: Iterate from resultIndex to avoid processing duplicate history
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const chunk = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalChunk += chunk;
+                } else {
+                    interimChunk += chunk;
+                }
+            }
+
+            if (finalChunk) {
+                setTranscript(prev => {
+                    // Avoid appending if it's already identical (rare edge case in some browsers)
+                    const cleanFinal = finalChunk.trim();
+                    if (!cleanFinal) return prev;
+                    return prev ? `${prev} ${cleanFinal}` : cleanFinal;
+                });
+                setInterimTranscript(''); 
+            } else {
+                setInterimTranscript(interimChunk);
+            }
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error("Speech Recognition Error", event.error);
+            if (event.error === 'not-allowed') {
+                setError("Microphone permission denied.");
+                setIsRecording(false);
+            }
+            if (event.error === 'no-speech') {
+                // Ignore no-speech errors usually
+            }
+        };
+        
+        recognition.onend = () => {
+             setIsRecording(false);
+             setInterimTranscript('');
+        };
+
+        recognitionRef.current = recognition;
+    } else {
+        setError("Your browser does not support Web Speech API. Please use Chrome/Edge/Safari.");
+    }
+  }, [language]); // Re-initialize if language toggle switches
 
   useEffect(() => {
       const saved = localStorage.getItem('medscribe_history');
       if (saved) setHistory(JSON.parse(saved));
   }, []);
-
-  useEffect(() => {
-    if (generatedData && user) {
-       const newData = { ...generatedData };
-       let changed = false;
-       if ((!newData.healthcareFacility || newData.healthcareFacility === '') && user.organization) {
-         newData.healthcareFacility = user.organization;
-         changed = true;
-       }
-       if ((!newData.doctorName || newData.doctorName === '') && user.name) {
-         newData.doctorName = user.name;
-         if (user.licenseId) newData.doctorName += `, ID: ${user.licenseId}`;
-         changed = true;
-       }
-       if (changed) setGeneratedData(newData);
-    }
-  }, [user, generatedData]);
 
   const addToHistory = (data: any, form: FormType) => {
       const newRecord: ConsultationRecord = {
@@ -108,83 +129,65 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
       localStorage.setItem('medscribe_history', JSON.stringify(updated));
   };
 
-  const handleSelectForm = (form: FormType) => {
-    setSelectedForm(form);
-    setGeneratedData(null); 
-    setIsDropdownOpen(false);
-  };
-
-  const loadFromHistory = (record: ConsultationRecord) => {
-      setSelectedForm(record.formType);
-      setGeneratedData(record.data);
-  };
-
-  const startRecording = async () => {
-    try {
-      setError(null);
-      setIsConfigError(false);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        const tracks = stream.getTracks();
-        tracks.forEach(track => track.stop());
-      };
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-      setElapsedTime(0);
-      setGeneratedData(null);
-      timerRef.current = window.setInterval(() => setElapsedTime(prev => prev + 1), 1000);
-    } catch (err) {
-      console.error(err);
-      setError("Microphone access denied.");
+  const startRecording = () => {
+    setError(null);
+    if (recognitionRef.current) {
+        try {
+            // Force language update right before starting
+            recognitionRef.current.lang = language === 'en' ? 'en-US' : 'ru-RU';
+            recognitionRef.current.start();
+            setIsRecording(true);
+        } catch(e) {
+            console.error(e);
+            // If already started, stop and restart
+            recognitionRef.current.stop();
+            setTimeout(() => {
+                recognitionRef.current.start();
+                setIsRecording(true);
+            }, 300);
+        }
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (timerRef.current) clearInterval(timerRef.current);
+    if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        setIsRecording(false);
+        setInterimTranscript('');
     }
   };
 
   const handleGenerate = async () => {
     setIsProcessing(true);
     setError(null);
-    setIsConfigError(false);
-    setStatusMessage(t.listeningForCommands);
     
     try {
-      // 1. Check for Voice Commands (Intent)
-      let targetForm = selectedForm;
-      const input = activeTab === 'audio' ? audioBlob! : textInput;
+      // Determine input source
+      const input = activeTab === 'audio' ? transcript : textInput;
       
-      const detectedForm = await identifyFormType(input);
-      
-      if (detectedForm && detectedForm !== selectedForm) {
-        setStatusMessage(`${t.switchingForm} ${detectedForm}...`);
-        setSelectedForm(detectedForm);
-        targetForm = detectedForm;
-        // Small delay to let user see the status change
-        await new Promise(r => setTimeout(r, 800));
+      if (!input || input.trim().length < 5) {
+          setError("Input is too short. Please record or type more details.");
+          setIsProcessing(false);
+          return;
       }
 
       setStatusMessage(t.processing);
 
-      // 2. Generate Data
-      let data: any;
-      if (activeTab === 'audio') {
-        if (!audioBlob) return;
-        data = await generateFormFromAudio(audioBlob, targetForm);
-      } else {
-        if (!textInput.trim()) return;
-        data = await generateFormFromText(textInput, targetForm);
+      // 1. Detect Intent
+      const detectedForm = await identifyFormType(input);
+      let targetForm = selectedForm;
+      
+      if (detectedForm && detectedForm !== selectedForm) {
+          setStatusMessage(`${t.switchingForm} ${detectedForm}...`);
+          setSelectedForm(detectedForm);
+          targetForm = detectedForm;
+          await new Promise(r => setTimeout(r, 800));
       }
 
+      // 2. Generate
+      const data = await generateForm(input, targetForm);
+
+      // 3. Apply User Profile
       if (user) {
         if (!data.healthcareFacility && user.organization) data.healthcareFacility = user.organization;
         if (!data.doctorName && user.name) {
@@ -197,13 +200,8 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
       addToHistory(data, targetForm);
 
     } catch (err: any) {
-      console.error("Generation failed:", err);
-      const errorMessage = err?.message || "";
-      if (errorMessage === "MISSING_API_KEY" || errorMessage.includes("API Key")) {
-        setIsConfigError(true);
-      } else {
-        setError("Failed to generate form. Please try again.");
-      }
+      console.error(err);
+      setError("Generation failed. Please try again.");
     } finally {
       setIsProcessing(false);
       setStatusMessage('');
@@ -214,180 +212,27 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
     if (generatedData) setGeneratedData({ ...generatedData, [field]: value });
   };
 
-  const handleDownloadDOCX = () => {
-    if (!generatedData) return;
-    
-    // Simple helper to avoid code duplication in template string
-    const row = (label: string, value: string) => `
-      <tr style="height: 30px;">
-        <td style="white-space: nowrap; padding-right: 10px; vertical-align: bottom;">${label}</td>
-        <td style="border-bottom: 1px solid black; text-align: center; vertical-align: bottom; font-weight: bold; width: 100%;">${value || ''}</td>
-      </tr>
-    `;
-    const checkbox = (label: string, isChecked: boolean) => `
-      <span style="margin-right: 20px;">
-        <span style="font-family: 'Courier New', monospace; font-size: 14pt;">${isChecked ? '[X]' : '[ ]'}</span> ${label}
-      </span>
-    `;
-
-    let bodyContent = '';
-
-    // --- FORM 075/y ---
-    if (selectedForm === '075') {
-        const data = generatedData as Form075Data;
-        bodyContent = `
-        <p align="right" style="font-size: 10pt; margin-bottom: 20px;">(по приказу МЗ РК от 30.10.2020 № ҚР ДСМ-175/2020)</p>
-        <p align="center" style="font-weight: bold; margin-bottom: 5px; font-size: 14pt;">Форма № 075/у</p>
-        <p align="center" style="font-weight: bold; margin-bottom: 30px;">"Медицинская справка (врачебное профессионально-консультативное заключение)"</p>
-        <table>
-          ${row("Наименование МО", data.healthcareFacility)}
-          ${row("ИИН", data.iin)}
-          ${row("Ф.И.О. (при его наличии)", data.patientName)}
-          ${row("Дата рождения", data.dateOfBirth)}
-        </table>
-        <div style="margin: 15px 0;">
-          <span style="margin-right: 20px;">Пол:</span>
-          ${checkbox("мужской", data.gender === 'male')}
-          ${checkbox("женский", data.gender === 'female')}
-        </div>
-        <table>
-          ${row("Адрес проживания", data.livingAddress)}
-          ${row("Адрес регистрации", data.registrationAddress)}
-          ${row("Место работы/учебы/детского учреждения", data.workPlace)}
-          ${row("Должность", data.position)}
-          ${row("Дата последнего медицинского обследования", data.lastCheckupDate)}
-        </table>
-        <p style="margin-top: 15px; margin-bottom: 5px;">Заболевания, выявленные с момента последнего медосмотра наименование:</p>
-        <div style="border-bottom: 1px solid black; min-height: 40px; margin-bottom: 20px; font-weight: bold;">${data.pastIllnesses}</div>
-        <hr style="border-top: 2px solid black; margin: 30px 0;" />
-        <p style="font-size: 10pt; margin-bottom: 5px;">Врач Ф.И.О. (ПРИ ЕГО НАЛИЧИИ), идентификатор:</p>
-        <div style="border-bottom: 1px solid black; text-align: center; font-weight: bold; font-style: italic; margin-bottom: 20px;">${data.doctorName}</div>
-        <p style="font-size: 10pt; margin-bottom: 5px;">Заключение терапевта/ВОП:</p>
-        <div style="border-bottom: 1px solid black; text-align: center; font-weight: bold; color: #000000;">${data.conclusion}</div>
-        `;
-    }
-
-    // --- FORM 027/y ---
-    else if (selectedForm === '027') {
-        const data = generatedData as Form027Data;
-        bodyContent = `
-        <p align="right" style="font-size: 10pt; margin-bottom: 20px;">Утверждена приказом и.о. Министра<br/>здравоохранения Республики Казахстан<br/>от 30 октября 2020 года № ҚР ДСМ-175/2020</p>
-        <p align="center" style="font-weight: bold; margin-bottom: 30px; font-size: 14pt;">Форма № 027/у<br/>ВЫПИСКА ИЗ МЕДИЦИНСКОЙ КАРТЫ АМБУЛАТОРНОГО,<br/>СТАЦИОНАРНОГО БОЛЬНОГО</p>
-        <table>
-          ${row("1. Наименование МО", data.healthcareFacility)}
-          ${row("2. Дата выдачи", data.date)}
-          ${row("3. Ф.И.О. пациента", data.patientName)}
-          ${row("4. Дата рождения", data.dateOfBirth)}
-          ${row("5. Адрес проживания", data.address)}
-          ${row("6. Место работы/учебы", data.workPlace)}
-        </table>
-        <div style="margin-top: 15px;">7. Полный диагноз:</div>
-        <div style="border-bottom: 1px solid black; font-weight: bold; margin-bottom: 15px;">${data.diagnosis}</div>
-        <div style="margin-top: 15px;">8. Проведенное лечение (заключение):</div>
-        <div style="border-bottom: 1px solid black; min-height: 40px; font-weight: bold; margin-bottom: 15px;">${data.conclusion}</div>
-        <div style="margin-top: 15px;">9. Лечебно-трудовые рекомендации:</div>
-        <div style="border-bottom: 1px solid black; min-height: 40px; font-weight: bold; margin-bottom: 15px;">${data.recommendations}</div>
-        <div style="margin-top: 30px;">Врач:</div>
-        <div style="border-bottom: 1px solid black; font-weight: bold;">${data.doctorName}</div>
-        `;
-    }
-
-    // --- FORM 003/y ---
-    else if (selectedForm === '003') {
-        const data = generatedData as Form003Data;
-        bodyContent = `
-        <table style="width: 100%; border: none;">
-            <tr>
-                <td style="text-align: left; vertical-align: top; width: 50%;">
-                   <span style="text-decoration: underline; font-weight: bold;">${data.healthcareFacility}</span><br>
-                   наименование медицинской организации
-                </td>
-                <td style="text-align: right; vertical-align: top; width: 50%;">
-                    Утверждена приказом и.о. Министра<br/>здравоохранения Республики Казахстан<br/>от 30 октября 2020 года № ҚР ДСМ-175/2020<br/><br/>
-                    <b>Форма № 003/у</b>
-                </td>
-            </tr>
-        </table>
-        <h2 style="text-align: center; margin: 20px 0;">МЕДИЦИНСКАЯ КАРТА<br>стационарного пациента</h2>
-        <table>
-            ${row("1. Дата и время поступления", data.admissionDate)}
-            ${row("2. Дата и время выписки", data.dischargeDate)}
-        </table>
-        <table style="margin-top: 10px;">
-            <tr>
-                <td style="width: 70%; border-bottom: 1px solid black;">3. Отделение: <b>${data.department}</b></td>
-                <td style="width: 30%; border-bottom: 1px solid black; border-left: 1px solid white;">Палата №: <b>${data.ward}</b></td>
-            </tr>
-        </table>
-        ${row("4. Проведено койко-дней", data.daysSpent)}
-        ${row("5. Вид транспортировки", data.transportType)}
-        <table style="margin-top: 5px;">
-           <tr>
-              <td style="width: 50%; border-bottom: 1px solid black;">6. Группа крови: <b>${data.bloodType}</b></td>
-              <td style="width: 50%; border-bottom: 1px solid black;">Резус: <b>${data.rhFactor}</b></td>
-           </tr>
-        </table>
-        ${row("7. Побочное действие лекарств", data.sideEffects)}
-        <hr style="border-top: 1px solid black; margin: 15px 0;">
-        ${row("8. Ф.И.О. пациента", data.patientName)}
-        <div style="margin: 5px 0;">9. Пол: ${checkbox("М", data.gender === 'male')} ${checkbox("Ж", data.gender === 'female')}</div>
-        ${row("10. Дата рождения (Возраст)", data.age)}
-        ${row("11. Место жительства", data.address)}
-        ${row("12. Место работы", data.workPlace)}
-        ${row("13. Кем направлен", data.referredBy)}
-        <div style="margin: 5px 0;">14. Доставлен по экстренным показаниям: ${checkbox("Да", data.emergency)} ${checkbox("Нет", !data.emergency)}</div>
-        ${row("15. Диагноз направившего", data.referralDiagnosis)}
-        ${row("16. Диагноз клинический", data.clinicalDiagnosis)}
-        ${row("17. Дата установления", data.diagnosisDate)}
-        <div style="margin-top: 30px;">Врач:</div>
-        <div style="border-bottom: 1px solid black; font-weight: bold;">${data.doctorName}</div>
-        `;
-    }
-
-    const html = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head>
-        <meta charset='utf-8'><title>Document</title>
-        <style>body { font-family: 'Times New Roman', serif; font-size: 12pt; } table { width: 100%; border-collapse: collapse; margin-bottom: 5px; } td { padding-bottom: 2px; }</style>
-      </head>
-      <body>${bodyContent}</body></html>
-    `;
-    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(html);
-    const fileDownload = document.createElement("a");
-    document.body.appendChild(fileDownload);
-    fileDownload.href = source;
-    fileDownload.download = `MedScribe_Form_${selectedForm}_${generatedData.patientName || 'Doc'}.doc`;
-    fileDownload.click();
-    document.body.removeChild(fileDownload);
-  };
-
   const InputLine: React.FC<{label: string, value: string, onChange: (val: string) => void}> = ({ label, value, onChange }) => (
     <div className="flex items-baseline"><span className="whitespace-nowrap mr-2 text-gray-700">{label}</span><div className="border-b border-black flex-grow"><input className="w-full bg-transparent border-none focus:ring-0 p-0 font-serif text-[12pt] font-bold text-gray-900" value={value || ''} onChange={(e) => onChange(e.target.value)} /></div></div>
   );
-
-  const StampAndSignature = () => {
-      if (!user || (!user.stampImage && !user.signatureImage)) return null;
-      return (
-          <div className="absolute right-10 -top-10 pointer-events-none opacity-90 mix-blend-multiply">
-              {user.signatureImage && <img src={user.signatureImage} alt="Sig" className="h-16 relative top-8 left-0" />}
-              {user.stampImage && <img src={user.stampImage} alt="Stamp" className="h-24 w-24 relative -top-2 left-10 opacity-80" />}
-          </div>
-      );
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-20 px-4 md:px-6">
       <div className="max-w-[1920px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-6">
         
-        {/* LEFT COLUMN: Input */}
+        {/* LEFT COLUMN */}
         <div className="flex flex-col gap-6 no-print xl:col-span-4 h-fit relative xl:sticky xl:top-24">
           
           <div>
             <h2 className="text-3xl font-medium text-gray-900 mb-1">{t.title}</h2>
-            <p className="text-gray-400 text-sm">{t.subtitle}</p>
+            <div className="flex items-center gap-2">
+                <p className="text-gray-400 text-sm">{t.subtitle}</p>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider">OpenRouter</span>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col relative overflow-hidden transition-all">
+             
              {/* Tabs */}
              <div className="flex justify-center mb-6">
                 <div className="flex bg-gray-100/80 p-1 rounded-xl">
@@ -398,61 +243,70 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
 
             {activeTab === 'audio' ? (
               <div className="flex flex-col items-center justify-center gap-6 min-h-[300px]">
-                   <div className="text-6xl font-light text-gray-800 font-mono tracking-tighter tabular-nums">{Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}</div>
                    
                    {/* Record Button */}
-                   {!audioBlob && !isRecording && (
+                   {!isRecording && !transcript && !interimTranscript && (
                      <div className="flex flex-col items-center gap-4 animate-fade-in">
-                        <button onClick={startRecording} className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-red-500/20 hover:scale-105 transition-all active:scale-95 hover:bg-red-600 ring-4 ring-red-50"><Mic size={32} /></button>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t.tapToRecord}</p>
+                        <div className="relative group">
+                             <button onClick={startRecording} className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-red-500/20 hover:scale-105 transition-all active:scale-95 hover:bg-red-600 ring-4 ring-red-50 relative z-10"><Mic size={32} /></button>
+                             <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-bold text-gray-300 uppercase tracking-wider whitespace-nowrap">Input: {t.langIndicator}</div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">{t.tapToRecord}</p>
                      </div>
                    )}
 
                    {/* Stop Button */}
-                   {isRecording && <button onClick={stopRecording} className="w-20 h-20 bg-gray-900 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-105 transition-all active:scale-95 ring-4 ring-gray-100"><Square size={28} fill="currentColor" /></button>}
+                   {isRecording && (
+                       <div className="flex flex-col items-center gap-4 w-full">
+                           <div className="relative">
+                               <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
+                               <button onClick={stopRecording} className="relative w-20 h-20 bg-gray-900 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-105 transition-all active:scale-95 ring-4 ring-gray-100"><Square size={28} fill="currentColor" /></button>
+                           </div>
+                           <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest animate-pulse">{t.recording} ({t.langIndicator})</p>
+                           
+                           {/* Live Transcript Preview */}
+                           <div className="w-full mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 min-h-[80px] text-left">
+                               <p className="text-sm text-gray-800 leading-relaxed">
+                                   {transcript}
+                                   <span className="text-gray-400 ml-1">{interimTranscript}</span>
+                               </p>
+                           </div>
+                       </div>
+                    )}
                    
                    {/* Result */}
-                   {audioBlob && !isRecording && (
+                   {!isRecording && (transcript || interimTranscript) && (
                     <div className="flex flex-col items-center animate-fade-in w-full">
                       <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-4 ring-4 ring-green-50"><Check size={32} /></div>
-                      <p className="text-sm font-semibold text-gray-900 mb-4">{t.audioCaptured}</p>
-                      <button onClick={() => { setAudioBlob(null); setElapsedTime(0); }} className="text-xs text-gray-400 hover:text-gray-900 flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-lg transition-colors"><RefreshCw size={12} /> {t.reset}</button>
+                      <p className="text-sm font-semibold text-gray-900 mb-2">{t.audioCaptured}</p>
+                      
+                      <div className="w-full p-3 bg-gray-50 rounded-lg border border-gray-100 mb-4 max-h-40 overflow-y-auto">
+                           <p className="text-xs text-gray-600 italic leading-relaxed">
+                               "{transcript}"
+                           </p>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                          <button onClick={() => { startRecording(); }} className="text-xs text-gray-500 hover:text-gray-900 px-4 py-2 hover:bg-gray-50 rounded-lg">Continue Recording</button>
+                          <button onClick={() => { setTranscript(''); setInterimTranscript(''); }} className="text-xs text-red-400 hover:text-red-600 px-4 py-2 hover:bg-red-50 rounded-lg flex items-center gap-1"><RefreshCw size={10}/> {t.reset}</button>
+                      </div>
                     </div>
                    )}
               </div>
             ) : (
                 <textarea className="w-full h-[300px] bg-gray-50/50 p-4 rounded-xl border border-transparent focus:border-blue-100 focus:bg-white focus:ring-0 resize-none text-gray-700 text-sm leading-relaxed placeholder:text-gray-300 transition-all outline-none" placeholder={t.pasteText} value={textInput} onChange={(e) => setTextInput(e.target.value)} />
             )}
-            
-            {/* Voice Command Hint */}
-            <div className="mt-4 text-[10px] text-gray-400 text-center flex items-center justify-center gap-1">
-              <Command size={10} />
-              <span>Tip: Say "Compose form 003" (in EN, RU, or KZ) to auto-switch templates.</span>
-            </div>
           </div>
 
-          <button disabled={!isReadyToGenerate(activeTab, audioBlob, textInput) || isProcessing} onClick={handleGenerate} className={`w-full py-4 rounded-xl font-medium text-base flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/10 ${!isReadyToGenerate(activeTab, audioBlob, textInput) ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-[1.01] active:scale-[0.99]'}`}>
+          <button disabled={isProcessing || (activeTab === 'audio' && !transcript) || (activeTab === 'text' && !textInput)} onClick={handleGenerate} className={`w-full py-4 rounded-xl font-medium text-base flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/10 ${isProcessing || (activeTab === 'audio' && !transcript) ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
             {isProcessing ? (
-              <>
-                 <Loader2 className="animate-spin" size={18} /> 
-                 <span>{statusMessage || t.processing}</span>
-              </>
+              <><Loader2 className="animate-spin" size={18} /> <span>{statusMessage}</span></>
             ) : (
               <>{t.generate} <Sparkles size={18} className="text-blue-200" /></>
             )}
           </button>
           
           {error && <div className="p-4 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex gap-2"><AlertTriangle size={16} className="mt-0.5" />{error}</div>}
-          {isConfigError && (
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 text-amber-900 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-2"><Settings className="text-amber-600" size={16} /><h3 className="font-semibold text-sm">{t.configErrorTitle}</h3></div>
-              <p className="text-xs mb-3 leading-relaxed opacity-90">{t.configErrorDesc}</p>
-              <div className="flex gap-2">
-                 <input type="password" value={manualKeyInput} onChange={(e) => setManualKeyInput(e.target.value)} placeholder="AIzaSy..." className="flex-1 bg-white border border-amber-200 rounded px-2 py-1.5 text-xs outline-none"/>
-                 <button onClick={() => {if(manualKeyInput.length>10){setManualApiKey(manualKeyInput); handleGenerate();}}} className="bg-amber-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-amber-700">{t.saveKey}</button>
-              </div>
-            </div>
-          )}
 
            {/* History Widget */}
            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col max-h-[300px]">
@@ -462,7 +316,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
               <div className="overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                   {history.length === 0 && <p className="text-gray-300 text-xs italic text-center py-4">No archives yet.</p>}
                   {history.map((rec) => (
-                      <div key={rec.id} onClick={() => loadFromHistory(rec)} className="p-3 hover:bg-blue-50/50 rounded-xl cursor-pointer transition-colors group border border-transparent hover:border-blue-100">
+                      <div key={rec.id} onClick={() => { setSelectedForm(rec.formType); setGeneratedData(rec.data); }} className="p-3 hover:bg-blue-50/50 rounded-xl cursor-pointer transition-colors group border border-transparent hover:border-blue-100">
                           <div className="flex justify-between items-center mb-1">
                               <span className="font-semibold text-gray-800 text-xs">{rec.patientName}</span>
                               <span className="text-[9px] bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-medium">Form {rec.formType}</span>
@@ -472,12 +326,10 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
                   ))}
               </div>
           </div>
-
         </div>
 
         {/* RIGHT COLUMN: Results & Preview */}
         <div className="flex flex-col gap-6 xl:col-span-8">
-           
            {/* Toolbar */}
            <div className="no-print flex flex-wrap gap-4 justify-between items-center bg-white p-3 rounded-2xl border border-gray-200 shadow-sm relative xl:sticky xl:top-24 z-20">
              <div className="flex items-center gap-2 pl-2">
@@ -489,7 +341,7 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
                     {isDropdownOpen && (
                       <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-fade-in-up">
                           {['075', '027', '003'].map(f => (
-                              <div key={f} onClick={() => handleSelectForm(f as FormType)} className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 flex justify-between items-center border-b border-gray-50 last:border-0">
+                              <div key={f} onClick={() => { setSelectedForm(f as FormType); setGeneratedData(null); setIsDropdownOpen(false); }} className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 flex justify-between items-center border-b border-gray-50 last:border-0">
                                  Form {f}/у {selectedForm === f && <Check size={14} className="text-blue-600" />}
                               </div>
                           ))}
@@ -503,33 +355,22 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
                     <button onClick={() => setZoomLevel(z => Math.min(1.5, z + 0.1))} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><ZoomIn size={16}/></button>
                 </div>
              </div>
-             
-             {generatedData && (
-                 <div className="flex items-center gap-2 pr-1">
-                    <button onClick={handleDownloadDOCX} className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-bold tracking-wide hover:bg-green-700 transition-all shadow-md shadow-green-500/20 active:scale-95">
-                        <Download size={16} /> <span className="hidden sm:inline">{t.downloadWord}</span>
-                    </button>
-                    <button onClick={() => window.print()} className="p-2.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors">
-                        <Printer size={18} />
-                    </button>
-                 </div>
-             )}
           </div>
 
           {/* Clinical Snapshot Card */}
           {generatedData && generatedData.shortSummary && (
-              <div className="no-print bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-5 flex items-start gap-4 animate-fade-in">
-                  <div className="bg-white p-2 rounded-lg text-indigo-600 shadow-sm"><Sparkles size={18}/></div>
+              <div className="no-print bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-5 flex items-start gap-4 animate-fade-in">
+                  <div className="bg-white p-2 rounded-lg text-emerald-600 shadow-sm"><Sparkles size={18}/></div>
                   <div>
-                      <h3 className="text-[10px] font-bold text-indigo-900 uppercase tracking-widest mb-1">{t.clinicalSnapshot}</h3>
-                      <p className="text-indigo-800 text-sm leading-relaxed">{generatedData.shortSummary}</p>
+                      <h3 className="text-[10px] font-bold text-emerald-900 uppercase tracking-widest mb-1">{t.clinicalSnapshot}</h3>
+                      <p className="text-emerald-800 text-sm leading-relaxed">{generatedData.shortSummary}</p>
                   </div>
               </div>
           )}
 
           {/* Document Preview Area */}
-          <div className="bg-gray-200/50 rounded-3xl border border-gray-300/50 shadow-inner h-[500px] md:h-[800px] overflow-auto flex justify-center p-4 md:p-8 relative print:h-auto print:overflow-visible print:bg-white print:p-0 print:border-none print:shadow-none">
-            <div className={`print-area bg-white shadow-2xl transition-transform origin-top duration-200 ${!generatedData ? 'flex items-center justify-center' : ''} print:shadow-none print:transform-none print:m-0`}
+          <div className="bg-gray-200/50 rounded-3xl border border-gray-300/50 shadow-inner h-[500px] md:h-[800px] overflow-auto flex justify-center p-4 md:p-8 relative">
+            <div className={`print-area bg-white shadow-2xl transition-transform origin-top duration-200 ${!generatedData ? 'flex items-center justify-center' : ''}`}
                 style={{ width: '794px', minHeight: '1123px', padding: '60px', transform: `scale(${zoomLevel})`, marginBottom: `${(zoomLevel - 1) * 1123}px` }}>
                 
                 {!generatedData ? (
@@ -560,12 +401,6 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
                               <InputLine label="Должность" value={generatedData.position} onChange={(v) => handleFieldChange('position', v)} />
                               <InputLine label="Дата последнего медосмотра" value={generatedData.lastCheckupDate} onChange={(v) => handleFieldChange('lastCheckupDate', v)} />
                               <div className="flex flex-col"><span className="mb-1">Заболевания:</span><div className="border-b border-black w-full"><textarea className="w-full bg-transparent border-none focus:ring-0 p-0 resize-none font-serif text-[12pt] font-bold" rows={2} value={generatedData.pastIllnesses} onChange={(e) => handleFieldChange('pastIllnesses', e.target.value)}></textarea></div></div>
-                              <div className="border-t-2 border-black my-6"></div>
-                              <div className="mb-4 relative">
-                                  <p className="mb-1 text-[10pt]">Врач Ф.И.О.:</p>
-                                  <div className="border-b border-black w-full"><input className="w-full bg-transparent border-none focus:ring-0 p-0 text-center font-bold italic font-serif text-[12pt]" value={generatedData.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value)} /></div>
-                                  <StampAndSignature />
-                              </div>
                               <div><p className="mb-1 text-[10pt]">Заключение:</p><div className="border-b border-black w-full"><textarea className="w-full bg-transparent border-none focus:ring-0 p-0 text-center font-bold text-blue-900 resize-none font-serif text-[12pt]" rows={2} value={generatedData.conclusion} onChange={(e) => handleFieldChange('conclusion', e.target.value)}></textarea></div></div>
                           </div>
                         </>
@@ -574,70 +409,27 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
                       {/* --- RENDER 027 --- */}
                       {selectedForm === '027' && (
                           <>
-                            <div className="text-right text-[10pt] mb-4">Утверждена приказом и.о. Министра<br/>здравоохранения Республики Казахстан<br/>от 30 октября 2020 года № ҚР ДСМ-175/2020</div>
-                            <div className="text-center font-bold mb-8 text-[14pt]">Форма № 027/у<br/>ВЫПИСКА ИЗ МЕДИЦИНСКОЙ КАРТЫ АМБУЛАТОРНОГО,<br/>СТАЦИОНАРНОГО БОЛЬНОГО</div>
+                            <div className="text-right text-[10pt] mb-4">Утверждена приказом и.о. Министра...</div>
+                            <div className="text-center font-bold mb-8 text-[14pt]">Форма № 027/у<br/>ВЫПИСКА ИЗ МЕДИЦИНСКОЙ КАРТЫ</div>
                             <div className="space-y-4">
                                 <InputLine label="1. Наименование МО:" value={generatedData.healthcareFacility} onChange={(v) => handleFieldChange('healthcareFacility', v)} />
                                 <InputLine label="2. Дата выдачи:" value={generatedData.date} onChange={(v) => handleFieldChange('date', v)} />
                                 <InputLine label="3. Ф.И.О. пациента:" value={generatedData.patientName} onChange={(v) => handleFieldChange('patientName', v)} />
-                                <InputLine label="4. Дата рождения:" value={generatedData.dateOfBirth} onChange={(v) => handleFieldChange('dateOfBirth', v)} />
-                                <InputLine label="5. Адрес проживания:" value={generatedData.address} onChange={(v) => handleFieldChange('address', v)} />
-                                <InputLine label="6. Место работы/учебы:" value={generatedData.workPlace} onChange={(v) => handleFieldChange('workPlace', v)} />
                                 <div><div className="mb-1">7. Полный диагноз:</div><div className="border-b border-black"><textarea className="w-full bg-transparent border-none focus:ring-0 p-0 font-serif text-[12pt] font-bold" rows={3} value={generatedData.diagnosis} onChange={(e) => handleFieldChange('diagnosis', e.target.value)}></textarea></div></div>
                                 <div><div className="mb-1">8. Проведенное лечение (заключение):</div><div className="border-b border-black"><textarea className="w-full bg-transparent border-none focus:ring-0 p-0 font-serif text-[12pt] font-bold" rows={3} value={generatedData.conclusion} onChange={(e) => handleFieldChange('conclusion', e.target.value)}></textarea></div></div>
-                                <div><div className="mb-1">9. Лечебно-трудовые рекомендации:</div><div className="border-b border-black"><textarea className="w-full bg-transparent border-none focus:ring-0 p-0 font-serif text-[12pt] font-bold" rows={3} value={generatedData.recommendations} onChange={(e) => handleFieldChange('recommendations', e.target.value)}></textarea></div></div>
-                                <div className="mt-8 relative">
-                                    <div className="mb-1">Врач:</div>
-                                    <div className="border-b border-black"><input className="w-full bg-transparent border-none focus:ring-0 p-0 font-serif text-[12pt] font-bold" value={generatedData.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value)} /></div>
-                                    <StampAndSignature />
-                                </div>
                             </div>
                           </>
                       )}
-
+                      
                       {/* --- RENDER 003 --- */}
                       {selectedForm === '003' && (
                         <>
-                           <div className="flex justify-between items-start text-[10pt] mb-6">
-                              <div className="text-left w-1/2">
-                                  <div className="border-b border-black inline-block min-w-[200px] font-bold">{generatedData.healthcareFacility}</div><br/>
-                                  наименование медицинской организации
-                              </div>
-                              <div className="text-right w-1/2">
-                                  Утверждена приказом и.о. Министра<br/>здравоохранения Республики Казахстан<br/>от 30 октября 2020 года № ҚР ДСМ-175/2020<br/><br/>
-                                  <b>Форма № 003/у</b>
-                              </div>
-                           </div>
                            <h2 className="text-center font-bold text-[16pt] mb-6 leading-tight">МЕДИЦИНСКАЯ КАРТА<br/>стационарного пациента</h2>
-                           
                            <div className="space-y-2 text-[11pt]">
                               <InputLine label="1. Дата и время поступления" value={generatedData.admissionDate} onChange={(v) => handleFieldChange('admissionDate', v)} />
-                              <InputLine label="2. Дата и время выписки" value={generatedData.dischargeDate} onChange={(v) => handleFieldChange('dischargeDate', v)} />
-                              <div className="flex gap-4">
-                                 <div className="flex-grow"><InputLine label="3. Отделение" value={generatedData.department} onChange={(v) => handleFieldChange('department', v)} /></div>
-                                 <div className="w-32"><InputLine label="Палата №" value={generatedData.ward} onChange={(v) => handleFieldChange('ward', v)} /></div>
-                              </div>
-                              <InputLine label="4. Проведено койко-дней" value={generatedData.daysSpent} onChange={(v) => handleFieldChange('daysSpent', v)} />
-                              <InputLine label="5. Вид транспортировки" value={generatedData.transportType} onChange={(v) => handleFieldChange('transportType', v)} />
-                              <div className="flex gap-4"><div className="w-1/2"><InputLine label="6. Группа крови" value={generatedData.bloodType} onChange={(v) => handleFieldChange('bloodType', v)} /></div><div className="w-1/2"><InputLine label="Резус" value={generatedData.rhFactor} onChange={(v) => handleFieldChange('rhFactor', v)} /></div></div>
-                              <InputLine label="7. Побочное действие лекарств" value={generatedData.sideEffects} onChange={(v) => handleFieldChange('sideEffects', v)} />
-                              <div className="border-t border-black my-4"></div>
                               <InputLine label="8. Ф.И.О. пациента" value={generatedData.patientName} onChange={(v) => handleFieldChange('patientName', v)} />
-                              <div className="flex items-center gap-4"><span>9. Пол:</span><span className={generatedData.gender === 'male' ? 'underline font-bold' : ''}>М</span><span className={generatedData.gender === 'female' ? 'underline font-bold' : ''}>Ж</span></div>
-                              <InputLine label="10. Дата рождения (Возраст)" value={generatedData.age} onChange={(v) => handleFieldChange('age', v)} />
-                              <InputLine label="11. Место жительства" value={generatedData.address} onChange={(v) => handleFieldChange('address', v)} />
-                              <InputLine label="12. Место работы" value={generatedData.workPlace} onChange={(v) => handleFieldChange('workPlace', v)} />
-                              <InputLine label="13. Кем направлен" value={generatedData.referredBy} onChange={(v) => handleFieldChange('referredBy', v)} />
-                              <div className="flex items-center gap-4"><span>14. Доставлен по экстренным показаниям:</span><span className={generatedData.emergency ? 'underline font-bold' : ''}>Да</span><span className={!generatedData.emergency ? 'underline font-bold' : ''}>Нет</span></div>
-                              <InputLine label="15. Диагноз направившего" value={generatedData.referralDiagnosis} onChange={(v) => handleFieldChange('referralDiagnosis', v)} />
                               <InputLine label="16. Диагноз клинический" value={generatedData.clinicalDiagnosis} onChange={(v) => handleFieldChange('clinicalDiagnosis', v)} />
-                              <InputLine label="17. Дата установления" value={generatedData.diagnosisDate} onChange={(v) => handleFieldChange('diagnosisDate', v)} />
                            </div>
-                           <div className="mt-8 relative">
-                                <div className="mb-1">Врач:</div>
-                                <div className="border-b border-black"><input className="w-full bg-transparent border-none focus:ring-0 p-0 font-serif text-[12pt] font-bold" value={generatedData.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value)} /></div>
-                                <StampAndSignature />
-                            </div>
                         </>
                       )}
                   </div>
@@ -648,11 +440,6 @@ const AppInterface: React.FC<AppInterfaceProps> = ({ language, user }) => {
       </div>
     </div>
   );
-};
-
-// Helper for 'ready' state to avoid complex expression in JSX
-const isReadyToGenerate = (activeTab: 'audio'|'text', audioBlob: Blob|null, textInput: string) => {
-    return (activeTab === 'audio' && audioBlob !== null) || (activeTab === 'text' && textInput.length > 10);
 };
 
 export default AppInterface;

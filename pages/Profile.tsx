@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Language, ConsultationRecord, AnalyticsInsight } from '../types';
 import { UserCircle, Building2, BadgeCheck, FileSignature, Stamp, Mail, Hash, Briefcase, Activity, Sparkles, TrendingUp, Clock, Calendar, ArrowRight } from 'lucide-react';
-import { generateDoctorInsights } from '../services/geminiService';
+import { generateDoctorInsights } from '../services/openRouterService';
 
 interface ProfileProps {
   user: User | null;

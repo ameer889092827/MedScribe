@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ArrowRight, Mic, Sparkles, ScrollText, History, Stamp, FileText } from 'lucide-react';
 import { Page, Language } from '../types';
@@ -94,7 +95,7 @@ const Home: React.FC<HomeProps> = ({ setPage, language }) => {
                 <div className="relative z-10 h-full flex flex-col justify-between min-h-[250px] md:min-h-[300px]">
                     <div>
                         <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 mb-6 md:mb-8 border border-white/5 group-hover:bg-white/10 transition-colors">
-                            <Mic size={24} md:size={28} strokeWidth={1.5} />
+                            <Mic className="w-6 h-6 md:w-7 md:h-7" strokeWidth={1.5} />
                         </div>
                         <h3 className="text-xl md:text-2xl font-medium text-white mb-3 md:mb-4">{t.step1Title}</h3>
                         <p className="text-gray-400 leading-relaxed font-light text-sm">{t.step1Desc}</p>
@@ -108,7 +109,7 @@ const Home: React.FC<HomeProps> = ({ setPage, language }) => {
                 <div className="relative z-10 h-full flex flex-col justify-between min-h-[250px] md:min-h-[300px]">
                     <div>
                         <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 mb-6 md:mb-8 border border-white/5 group-hover:bg-white/10 transition-colors">
-                            <Sparkles size={24} md:size={28} strokeWidth={1.5} />
+                            <Sparkles className="w-6 h-6 md:w-7 md:h-7" strokeWidth={1.5} />
                         </div>
                         <h3 className="text-xl md:text-2xl font-medium text-white mb-3 md:mb-4">{t.step2Title}</h3>
                         <p className="text-gray-400 leading-relaxed font-light text-sm">{t.step2Desc}</p>
@@ -123,7 +124,7 @@ const Home: React.FC<HomeProps> = ({ setPage, language }) => {
                     <div>
                         <div className="flex justify-between items-start mb-6 md:mb-8">
                             <div className="w-14 h-14 md:w-16 md:h-16 bg-white/5 rounded-2xl flex items-center justify-center text-gray-300 border border-white/5 group-hover:bg-white/10 transition-colors">
-                                <FileText size={24} md:size={28} strokeWidth={1.5} />
+                                <FileText className="w-6 h-6 md:w-7 md:h-7" strokeWidth={1.5} />
                             </div>
                             <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-md tracking-wider">NEW</span>
                         </div>
