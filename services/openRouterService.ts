@@ -6,12 +6,7 @@ import { FormType, ConsultationRecord, AnalyticsInsight } from "../types";
 // So 'api/chat.js' becomes available at '/api/chat'.
 const BACKEND_URL = "/api"; 
 
-/**
- * Call Backend API
- */
-// DIRECT OPENROUTER CALL (FOR TESTING ONLY)
-
-const OPENROUTER_API_KEY = "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";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 async function queryBackend(messages: any[]) {
     try {
